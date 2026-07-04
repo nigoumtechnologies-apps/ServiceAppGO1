@@ -76,6 +76,68 @@
   .refresh-btn{background:none; border:none; color:var(--teal); font-size:19px; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;}
   .refresh-btn.spinning{animation:spin 0.7s linear infinite;}
   @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .dash-btn{background:none; border:none; color:var(--amber); font-size:17px; cursor:pointer; padding:4px;}
+
+  /* ---------------- DATE RANGE BAR ---------------- */
+  .date-range-bar{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .date-range-input{
+    flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
+  }
+  .date-range-input:focus{border-color:var(--orange);}
+  .date-range-sep{font-size:11px; color:var(--text-faint);}
+  .date-range-clear{background:var(--steel); border:none; color:var(--text-faint); font-size:16px; border-radius:8px; padding:6px 10px; cursor:pointer;}
+
+  /* ---------------- DASHBOARD OVERLAY ---------------- */
+  .dashboard-overlay{
+    position:fixed; inset:0; background:var(--charcoal); z-index:60; display:none;
+    flex-direction:column; max-width:480px; margin:0 auto;
+  }
+  .dashboard-overlay.show{display:flex;}
+  .dashboard-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px; border-bottom:2px solid var(--orange); background:var(--charcoal-2);
+  }
+  .dashboard-title{font-size:17px; font-weight:800;}
+  .dash-close-btn{background:none; border:none; color:var(--text-dim); font-size:24px; cursor:pointer; padding:2px 8px;}
+  .dashboard-body{flex:1; overflow-y:auto; padding:16px;}
+
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
+  .stat-card{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .stat-value{font-size:26px; font-weight:900; margin-bottom:4px;}
+  .stat-label{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px;}
+  .stat-card.intake .stat-value{color:var(--amber);}
+  .stat-card.start .stat-value{color:var(--orange);}
+  .stat-card.finished .stat-value{color:var(--teal);}
+  .stat-card.delivered .stat-value{color:var(--text-dim);}
+  .stat-card.total .stat-value{color:var(--text);}
+  .stat-card.avg .stat-value{color:var(--teal); font-size:20px;}
+
+  .dash-section-title{font-size:13px; font-weight:700; color:var(--text-dim); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.5px;}
+  .mech-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:10px 14px; margin-bottom:8px; font-size:13px;
+  }
+  .mech-row .mech-count{font-weight:800; color:var(--orange);}
+
+  /* ---------------- VEHICLE HISTORY MODAL ---------------- */
+  .history-stage{
+    display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--steel-line);
+  }
+  .history-stage:last-child{border-bottom:none;}
+  .history-dot{
+    width:10px; height:10px; border-radius:50%; margin-top:4px; flex:0 0 10px;
+    background:var(--steel-line);
+  }
+  .history-stage.done .history-dot{background:var(--teal);}
+  .history-stage-label{font-size:13px; font-weight:700; color:var(--text);}
+  .history-stage-time{font-size:12px; color:var(--text-faint); margin-top:2px;}
+  .history-meta-row{display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-dim); padding:6px 0; border-bottom:1px solid var(--steel-line);}
+  .history-meta-row b{color:var(--text);}
 
   .search-wrap{position:relative; margin-bottom:0;}
   .search-input{
@@ -171,6 +233,8 @@
   .modal-handle{width:36px; height:4px; background:var(--steel-line); border-radius:4px; margin:0 auto 16px;}
   .modal-title{font-size:17px; font-weight:800; margin-bottom:16px;}
   .modal-field{margin-bottom:13px;}
+  .modal-row-2{display:flex; gap:10px;}
+  .modal-row-2 .modal-field{flex:1;}
   .modal-field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
   .modal-field input, .modal-field select{
     width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
@@ -229,6 +293,7 @@
         </div>
       </div>
       <div class="user-chip">
+        <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -241,6 +306,12 @@
       <span class="search-icon">&#128269;</span>
       <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle number or jobcard no.">
       <button class="search-clear" id="clearBtn">&times;</button>
+    </div>
+    <div class="date-range-bar">
+      <input type="date" class="date-range-input" id="filterFromDate" title="From date">
+      <span class="date-range-sep">to</span>
+      <input type="date" class="date-range-input" id="filterToDate" title="To date">
+      <button class="date-range-clear" id="dateRangeClearBtn" title="Clear date filter">&times;</button>
     </div>
   </header>
 
@@ -255,6 +326,27 @@
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
 
   <button class="fab" onclick="openAddModal()">+</button>
+</div>
+
+<!-- ============ DASHBOARD OVERLAY ============ -->
+<div class="dashboard-overlay" id="dashboardOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Dashboard Summary</div>
+    <button class="dash-close-btn" onclick="toggleDashboard()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="dashboardBody"></div>
+</div>
+
+<!-- ============ VEHICLE HISTORY MODAL ============ -->
+<div class="modal-overlay" id="historyModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="historyModalTitle">Vehicle History</div>
+    <div id="historyModalBody"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" style="flex:1;" onclick="closeHistoryModal()">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============ ADD VEHICLE MODAL ============ -->
@@ -274,6 +366,16 @@
     <div class="modal-field">
       <label>Intake Date</label>
       <input type="date" id="newIntakeDate">
+    </div>
+    <div class="modal-row-2">
+      <div class="modal-field">
+        <label>Est. Delivery Date</label>
+        <input type="date" id="newEstDeliveryDate">
+      </div>
+      <div class="modal-field">
+        <label>Est. Delivery Time</label>
+        <input type="time" id="newEstDeliveryTime">
+      </div>
     </div>
     <div class="modal-field">
       <label>Jobcard Type</label>
@@ -313,6 +415,8 @@ let currentUser = null;
 let activeFilter = "all";
 let searchTerm = "";
 let isSubmitting = false;
+let filterFromDate = "";
+let filterToDate = "";
 
 const STATUS_FLOW = ["intake","start","finished","delivered"];
 const STATUS_LABEL = {intake:"Intake", start:"Work Start", finished:"Finished", delivered:"Delivered"};
@@ -466,7 +570,10 @@ function render(){
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
       String(v.JobID||"").toLowerCase().includes(term);
-    return matchesStatus && matchesSearch;
+    const vDate = (v.IntakeDate||"").toString().slice(0,10);
+    const matchesFrom = !filterFromDate || vDate >= filterFromDate;
+    const matchesTo = !filterToDate || vDate <= filterToDate;
+    return matchesStatus && matchesSearch && matchesFrom && matchesTo;
   });
 
   const order = {intake:0, start:1, finished:2, delivered:3};
@@ -489,7 +596,7 @@ function render(){
 
     return `
     <div class="card" data-status="${v.Status}">
-      <div class="card-top">
+      <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
         <div>
           <div class="veh-no">${v.VehicleNo}</div>
           ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
@@ -501,6 +608,7 @@ function render(){
         <span>&#128197; ${v.IntakeDate||''}</span>
         <span>&#128337; ${v.IntakeTime||''}</span>
       </div>
+      ${v.EstDeliveryDate ? `<div class="card-meta"><span>&#9200; Est: ${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</span></div>` : ''}
       <div class="mechanic-row">
         <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
           ${mechanicOptions}
@@ -577,6 +685,8 @@ function openAddModal(){
   document.getElementById('newVehicleNo').value = '';
   document.getElementById('newJobcardType').value = '';
   document.getElementById('newMechanic').value = '';
+  document.getElementById('newEstDeliveryDate').value = '';
+  document.getElementById('newEstDeliveryTime').value = '';
   // default date = today
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -599,6 +709,8 @@ async function submitNewVehicle(){
   const intakeDate = document.getElementById('newIntakeDate').value;
   const jobcardType = document.getElementById('newJobcardType').value;
   const mechanic = document.getElementById('newMechanic').value;
+  const estDeliveryDate = document.getElementById('newEstDeliveryDate').value;
+  const estDeliveryTime = document.getElementById('newEstDeliveryTime').value;
 
   if(!jobId){
     showToast("Jobcard Number is required", true);
@@ -617,7 +729,7 @@ async function submitNewVehicle(){
 
   const params = new URLSearchParams({
     action: 'addJob',
-    jobId, vehicleNo, intakeDate, jobcardType, mechanic,
+    jobId, vehicleNo, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
     username: currentUser ? currentUser.username : ''
   });
 
@@ -644,7 +756,9 @@ async function submitNewVehicle(){
         FinishTime: "",
         DeliveredTime: "",
         Mechanic: mechanic,
-        CreatedBy: currentUser ? currentUser.username : ""
+        CreatedBy: currentUser ? currentUser.username : "",
+        EstDeliveryDate: estDeliveryDate,
+        EstDeliveryTime: estDeliveryTime
       });
       render();
     } else {
@@ -682,6 +796,135 @@ document.getElementById('filters').addEventListener('click', e=>{
   activeFilter = chip.dataset.status;
   render();
 });
+document.getElementById('filterFromDate').addEventListener('change', e=>{
+  filterFromDate = e.target.value;
+  render();
+});
+document.getElementById('filterToDate').addEventListener('change', e=>{
+  filterToDate = e.target.value;
+  render();
+});
+document.getElementById('dateRangeClearBtn').addEventListener('click', ()=>{
+  filterFromDate = '';
+  filterToDate = '';
+  document.getElementById('filterFromDate').value = '';
+  document.getElementById('filterToDate').value = '';
+  render();
+});
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function toggleDashboard(){
+  const overlay = document.getElementById('dashboardOverlay');
+  const isShowing = overlay.classList.toggle('show');
+  if(isShowing) renderDashboard();
+}
+
+function renderDashboard(){
+  // Dashboard respects the same date range filter as the main list,
+  // so "today only" or "this week" summaries are just a date pick away.
+  const inRange = vehicles.filter(v=>{
+    const vDate = (v.IntakeDate||"").toString().slice(0,10);
+    const matchesFrom = !filterFromDate || vDate >= filterFromDate;
+    const matchesTo = !filterToDate || vDate <= filterToDate;
+    return matchesFrom && matchesTo;
+  });
+
+  const counts = {intake:0, start:0, finished:0, delivered:0};
+  inRange.forEach(v=>{ if(counts[v.Status]!==undefined) counts[v.Status]++; });
+
+  // Average turnaround: IntakeTime -> DeliveredTime, for delivered vehicles only
+  let totalMinutes = 0, deliveredWithTimes = 0;
+  inRange.forEach(v=>{
+    if(v.Status==='delivered' && v.IntakeTime && v.DeliveredTime){
+      const t1 = new Date(v.IntakeTime.replace(' ','T'));
+      const t2 = new Date(v.DeliveredTime.replace(' ','T'));
+      if(!isNaN(t1) && !isNaN(t2) && t2>t1){
+        totalMinutes += (t2-t1)/60000;
+        deliveredWithTimes++;
+      }
+    }
+  });
+  const avgMinutes = deliveredWithTimes ? Math.round(totalMinutes/deliveredWithTimes) : 0;
+  const avgLabel = avgMinutes >= 60
+    ? `${Math.floor(avgMinutes/60)}h ${avgMinutes%60}m`
+    : `${avgMinutes}m`;
+
+  // Mechanic workload (open jobs only: start status)
+  const mechCounts = {};
+  inRange.forEach(v=>{
+    if(v.Status==='start' && v.Mechanic){
+      mechCounts[v.Mechanic] = (mechCounts[v.Mechanic]||0) + 1;
+    }
+  });
+
+  const rangeLabel = (filterFromDate || filterToDate)
+    ? `${filterFromDate||'…'} to ${filterToDate||'…'}`
+    : 'All time';
+
+  const body = document.getElementById('dashboardBody');
+  body.innerHTML = `
+    <div style="font-size:12px; color:var(--text-faint); margin-bottom:14px;">Showing: ${rangeLabel}</div>
+    <div class="stat-grid">
+      <div class="stat-card total"><div class="stat-value">${inRange.length}</div><div class="stat-label">Total Vehicles</div></div>
+      <div class="stat-card avg"><div class="stat-value">${deliveredWithTimes ? avgLabel : '—'}</div><div class="stat-label">Avg Turnaround</div></div>
+      <div class="stat-card intake"><div class="stat-value">${counts.intake}</div><div class="stat-label">Intake</div></div>
+      <div class="stat-card start"><div class="stat-value">${counts.start}</div><div class="stat-label">Working</div></div>
+      <div class="stat-card finished"><div class="stat-value">${counts.finished}</div><div class="stat-label">Finished</div></div>
+      <div class="stat-card delivered"><div class="stat-value">${counts.delivered}</div><div class="stat-label">Delivered</div></div>
+    </div>
+    <div class="dash-section-title">Mechanic Workload (Currently Working)</div>
+    ${Object.keys(mechCounts).length===0
+      ? '<div style="color:var(--text-faint); font-size:12.5px;">No active jobs assigned right now</div>'
+      : Object.entries(mechCounts).sort((a,b)=>b[1]-a[1]).map(([m,c])=>
+          `<div class="mech-row"><span>${m}</span><span class="mech-count">${c} job${c>1?'s':''}</span></div>`
+        ).join('')
+    }
+  `;
+}
+
+/* =========================================================
+   VEHICLE HISTORY MODAL
+   ========================================================= */
+function openHistoryModal(jobId){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  document.getElementById('historyModalTitle').textContent = `${v.VehicleNo} — Jobcard #${v.JobID}`;
+
+  const stages = [
+    {key:'IntakeTime', label:'Intake', done: !!v.IntakeTime},
+    {key:'StartTime', label:'Work Start', done: !!v.StartTime},
+    {key:'FinishTime', label:'Work Finished', done: !!v.FinishTime},
+    {key:'DeliveredTime', label:'Delivered', done: !!v.DeliveredTime}
+  ];
+
+  const stageHtml = stages.map(s=>`
+    <div class="history-stage ${s.done?'done':''}">
+      <div class="history-dot"></div>
+      <div>
+        <div class="history-stage-label">${s.label}</div>
+        <div class="history-stage-time">${v[s.key] || 'Not yet'}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const metaHtml = `
+    <div class="history-meta-row"><span>Jobcard Type</span><b>${v.JobcardType||'—'}</b></div>
+    <div class="history-meta-row"><span>Mechanic</span><b>${v.Mechanic||'Not assigned'}</b></div>
+    <div class="history-meta-row"><span>Intake Date</span><b>${v.IntakeDate||'—'}</b></div>
+    ${v.EstDeliveryDate ? `<div class="history-meta-row"><span>Est. Delivery</span><b>${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</b></div>` : ''}
+    <div class="history-meta-row"><span>Created By</span><b>${v.CreatedBy||'—'}</b></div>
+  `;
+
+  document.getElementById('historyModalBody').innerHTML = metaHtml + '<div style="margin-top:14px;">' + stageHtml + '</div>';
+  document.getElementById('historyModalOverlay').classList.add('show');
+}
+
+function closeHistoryModal(){
+  document.getElementById('historyModalOverlay').classList.remove('show');
+}
 
 /* =========================================================
    TOAST
