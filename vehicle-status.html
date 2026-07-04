@@ -465,7 +465,7 @@ function render(){
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
-      (v.JobID||"").toLowerCase().includes(term);
+      String(v.JobID||"").toLowerCase().includes(term);
     return matchesStatus && matchesSearch;
   });
 
