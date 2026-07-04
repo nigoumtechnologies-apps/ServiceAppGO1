@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AutoServe — Vehicle Status</title>
+<style>
+  :root{
+    --charcoal:#1c2024;
+    --charcoal-2:#262b30;
+    --steel:#3a4148;
+    --steel-line:#454d55;
+    --orange:#ff6b1a;
+    --orange-dim:#4a2e18;
+    --teal:#1fa693;
+    --teal-dim:#123833;
+    --amber:#e0a325;
+    --amber-dim:#4a3a12;
+    --text:#eef1f3;
+    --text-dim:#9aa4ab;
+    --text-faint:#6b7580;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--charcoal); color:var(--text);
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+    min-height:100vh; -webkit-tap-highlight-color:transparent;
+  }
+  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
+  input, select, button{font-family:inherit;}
+
+  /* ---------------- LOGIN SCREEN ---------------- */
+  .login-screen{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; gap:22px;
+  }
+  .login-brand{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:8px;}
+  .login-mark{
+    width:56px; height:56px; background:var(--orange);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:22px; color:var(--charcoal);
+  }
+  .login-title{font-size:22px; font-weight:800;}
+  .login-sub{font-size:12px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase;}
+  .login-form{width:100%; max-width:320px; display:flex; flex-direction:column; gap:12px;}
+  .field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
+  .field input{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line);
+    border-radius:10px; padding:13px 14px; font-size:16px; color:var(--text); outline:none;
+  }
+  .field input:focus{border-color:var(--orange);}
+  .btn-primary{
+    width:100%; background:var(--orange); color:#2e1500; border:none; border-radius:10px;
+    padding:14px; font-size:15px; font-weight:800; cursor:pointer; margin-top:6px;
+  }
+  .btn-primary:active{transform:scale(0.98);}
+  .login-error{color:var(--orange); font-size:12.5px; text-align:center; min-height:16px;}
+
+  /* ---------------- HEADER ---------------- */
+  header{background:var(--charcoal-2); padding:12px 16px 12px; border-bottom:2px solid var(--orange); position:sticky; top:0; z-index:20;}
+  .brand{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .brand-left{display:flex; align-items:center; gap:8px;}
+  .brand-mark{
+    width:28px; height:28px; background:var(--orange);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--charcoal);
+  }
+  .brand-name{font-size:17px; font-weight:800;}
+  .brand-sub{font-size:10px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase;}
+  .user-chip{display:flex; align-items:center; gap:8px;}
+  .user-info{text-align:right;}
+  .user-info .uname{font-size:12px; font-weight:700; color:var(--text);}
+  .user-info .urole{font-size:9.5px; color:var(--text-faint); text-transform:uppercase;}
+  .logout-btn{background:none; border:none; color:var(--text-faint); font-size:18px; cursor:pointer; padding:4px;}
+
+  .search-wrap{position:relative; margin-bottom:0;}
+  .search-input{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 40px 12px 38px; font-size:15px; color:var(--text); outline:none;
+  }
+  .search-input::placeholder{color:var(--text-faint);}
+  .search-input:focus{border-color:var(--orange);}
+  .search-icon{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:16px;}
+  .search-clear{position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:18px; background:none; border:none; display:none; padding:4px; cursor:pointer;}
+  .search-clear.show{display:block;}
+
+  /* ---------------- FILTER CHIPS ---------------- */
+  .filters{display:flex; gap:8px; padding:12px 16px; overflow-x:auto; background:var(--charcoal-2); border-bottom:1px solid var(--steel-line);}
+  .filters::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; padding:7px 13px; border-radius:20px; font-size:12.5px; font-weight:700;
+    border:1.5px solid var(--steel-line); background:var(--steel); color:var(--text-dim);
+    white-space:nowrap; display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+  }
+  .chip .dot{width:7px; height:7px; border-radius:50%; background:currentColor;}
+  .chip.active{color:var(--charcoal); border-color:transparent;}
+  .chip[data-status="all"].active{background:var(--text); color:var(--charcoal);}
+  .chip[data-status="intake"]{color:var(--amber);}
+  .chip[data-status="intake"].active{background:var(--amber); color:#2a2108;}
+  .chip[data-status="start"]{color:var(--orange);}
+  .chip[data-status="start"].active{background:var(--orange); color:#2e1500;}
+  .chip[data-status="finished"]{color:var(--teal);}
+  .chip[data-status="finished"].active{background:var(--teal); color:#04211c;}
+  .chip[data-status="delivered"]{color:var(--text-faint);}
+  .chip[data-status="delivered"].active{background:var(--text-faint); color:var(--charcoal);}
+  .chip-count{font-weight:900;}
+
+  /* ---------------- FAB (Add Vehicle) ---------------- */
+  .fab{
+    position:fixed; bottom:20px; right:20px; z-index:30;
+    width:56px; height:56px; border-radius:50%; background:var(--orange); color:#2e1500;
+    border:none; font-size:26px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,0.5); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fab:active{transform:scale(0.94);}
+
+  /* ---------------- LIST ---------------- */
+  .list{flex:1; padding:12px; padding-bottom:90px; display:flex; flex-direction:column; gap:10px;}
+  .empty-state{text-align:center; padding:60px 20px; color:var(--text-faint);}
+  .empty-state .icon{font-size:32px; margin-bottom:10px; opacity:0.5;}
+  .empty-state p{font-size:13px;}
+
+  .card{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-left:4px solid var(--steel-line);
+    border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
+  }
+  .card[data-status="intake"]{border-left-color:var(--amber);}
+  .card[data-status="start"]{border-left-color:var(--orange);}
+  .card[data-status="finished"]{border-left-color:var(--teal);}
+  .card[data-status="delivered"]{border-left-color:var(--text-faint); opacity:0.6;}
+
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .veh-no{font-size:17px; font-weight:800; letter-spacing:0.5px; font-family:'Consolas', monospace;}
+  .cust-name{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+  .status-tag{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 9px; border-radius:6px; white-space:nowrap;}
+  .status-tag[data-status="intake"]{background:var(--amber-dim); color:var(--amber);}
+  .status-tag[data-status="start"]{background:var(--orange-dim); color:var(--orange);}
+  .status-tag[data-status="finished"]{background:var(--teal-dim); color:var(--teal);}
+  .status-tag[data-status="delivered"]{background:var(--steel); color:var(--text-faint);}
+
+  .card-meta{display:flex; gap:12px; font-size:11.5px; color:var(--text-faint); flex-wrap:wrap;}
+  .card-meta span{display:flex; align-items:center; gap:4px;}
+
+  .mechanic-row{display:flex; align-items:center; gap:8px;}
+  .mechanic-select{
+    flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
+  }
+  .mechanic-select:focus{border-color:var(--teal);}
+
+  .card-actions{display:flex; gap:8px; margin-top:2px;}
+  .btn-status{flex:1; padding:9px 6px; border-radius:8px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:var(--text-faint); background:var(--steel);}
+  .btn-status:active{transform:scale(0.96);}
+  .btn-status.next{background:var(--orange); color:#2e1500;}
+  .btn-status.call{flex:0 0 42px; background:var(--steel); color:var(--text-dim); font-size:16px;}
+
+  /* ---------------- ADD VEHICLE MODAL ---------------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:40; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    width:100%; max-width:480px; background:var(--charcoal-2); border-radius:18px 18px 0 0;
+    padding:20px 18px 24px; max-height:88vh; overflow-y:auto;
+  }
+  .modal-handle{width:36px; height:4px; background:var(--steel-line); border-radius:4px; margin:0 auto 16px;}
+  .modal-title{font-size:17px; font-weight:800; margin-bottom:16px;}
+  .modal-field{margin-bottom:13px;}
+  .modal-field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
+  .modal-field input, .modal-field select{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 13px; font-size:15px; color:var(--text); outline:none;
+  }
+  .modal-field input:focus, .modal-field select:focus{border-color:var(--orange);}
+  .modal-actions{display:flex; gap:10px; margin-top:6px;}
+  .btn-cancel{flex:1; background:var(--steel); color:var(--text-dim); border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;}
+  .btn-save{flex:2; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:800; cursor:pointer;}
+
+  /* ---------------- TOAST / LOADING ---------------- */
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(100px);
+    background:var(--teal); color:#04211c; font-weight:700; font-size:13px;
+    padding:11px 20px; border-radius:30px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    transition:transform 0.25s ease; z-index:50; white-space:nowrap;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--orange); color:#2e1500;}
+  .loading{text-align:center; padding:40px; color:var(--text-faint); font-size:13px;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-brand">
+    <div class="login-mark">AS</div>
+    <div class="login-title">AutoServe</div>
+    <div class="login-sub">Ayyappan Agency</div>
+  </div>
+  <div class="login-form">
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="loginUsername" autocomplete="off" placeholder="e.g. ravi">
+    </div>
+    <div class="field">
+      <label>PIN</label>
+      <input type="password" id="loginPin" inputmode="numeric" maxlength="6" placeholder="4-digit PIN">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Login</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="mainApp" style="display:none;">
+
+  <header>
+    <div class="brand">
+      <div class="brand-left">
+        <div class="brand-mark">AS</div>
+        <div>
+          <div class="brand-name">AutoServe</div>
+          <div class="brand-sub">Ayyappan Agency</div>
+        </div>
+      </div>
+      <div class="user-chip">
+        <div class="user-info">
+          <div class="uname" id="userName">—</div>
+          <div class="urole" id="userRole">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()">&#10132;</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle no. or customer name">
+      <button class="search-clear" id="clearBtn">&times;</button>
+    </div>
+  </header>
+
+  <div class="filters" id="filters">
+    <div class="chip active" data-status="all">All <span class="chip-count" id="count-all">0</span></div>
+    <div class="chip" data-status="intake"><span class="dot"></span>Intake <span class="chip-count" id="count-intake">0</span></div>
+    <div class="chip" data-status="start"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
+    <div class="chip" data-status="finished"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
+    <div class="chip" data-status="delivered"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
+  </div>
+
+  <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
+
+  <button class="fab" onclick="openAddModal()">+</button>
+</div>
+
+<!-- ============ ADD VEHICLE MODAL ============ -->
+<div class="modal-overlay" id="addModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Vehicle Intake</div>
+
+    <div class="modal-field">
+      <label>Vehicle Number</label>
+      <input type="text" id="newVehicleNo" placeholder="TN 45 AB 1234" style="text-transform:uppercase;">
+    </div>
+    <div class="modal-field">
+      <label>Customer Name</label>
+      <input type="text" id="newCustomerName" placeholder="Customer name">
+    </div>
+    <div class="modal-field">
+      <label>Phone Number</label>
+      <input type="tel" id="newPhone" inputmode="numeric" placeholder="10-digit mobile">
+    </div>
+    <div class="modal-field">
+      <label>Intake Date</label>
+      <input type="date" id="newIntakeDate">
+    </div>
+    <div class="modal-field">
+      <label>Assign Mechanic (optional)</label>
+      <select id="newMechanic">
+        <option value="">Not assigned yet</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-save" onclick="submitNewVehicle()">Save Intake</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIG — set this to your deployed GAS Web App /exec URL
+   ========================================================= */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxvYTFSweC0XcWzx66EQtaOMTfYnxPFdRz2qIVMf7cvv6bGAAk8YMZtb4Nlf0HZG8QqAg/exec";
+
+/* =========================================================
+   STATE
+   ========================================================= */
+let vehicles = [];
+let mechanicsList = [];
+let currentUser = null;
+let activeFilter = "all";
+let searchTerm = "";
+
+const STATUS_FLOW = ["intake","start","finished","delivered"];
+const STATUS_LABEL = {intake:"Intake", start:"Work Start", finished:"Finished", delivered:"Delivered"};
+const NEXT_LABEL = {intake:"Start Work", start:"Mark Finished", finished:"Deliver", delivered:null};
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+async function doLogin(){
+  const username = document.getElementById('loginUsername').value.trim();
+  const pin = document.getElementById('loginPin').value.trim();
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = "";
+
+  if(!username || !pin){
+    errEl.textContent = "Enter username and PIN";
+    return;
+  }
+
+  errEl.textContent = "Checking…";
+  try{
+    const res = await fetch(`${GAS_URL}?action=login&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}`);
+    const data = await res.json();
+    if(data.success){
+      currentUser = data;
+      document.getElementById('userName').textContent = data.fullName || data.username;
+      document.getElementById('userRole').textContent = data.role || "";
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'flex';
+      initApp();
+    } else {
+      errEl.textContent = data.message || "Login failed";
+    }
+  } catch(err){
+    errEl.textContent = "Connection error. Check GAS_URL.";
+  }
+}
+
+function logout(){
+  currentUser = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPin').value = '';
+}
+
+/* =========================================================
+   INIT — load lists + jobs after login
+   ========================================================= */
+async function initApp(){
+  await loadLists();
+  await loadJobs();
+}
+
+async function loadLists(){
+  try{
+    const res = await fetch(`${GAS_URL}?action=getLists`);
+    const data = await res.json();
+    if(data.success){
+      mechanicsList = data.lists.Mechanics || [];
+      const sel = document.getElementById('newMechanic');
+      sel.innerHTML = '<option value="">Not assigned yet</option>' +
+        mechanicsList.map(m=>`<option value="${m}">${m}</option>`).join('');
+    }
+  } catch(err){
+    showToast("Could not load mechanic list", true);
+  }
+}
+
+async function loadJobs(){
+  document.getElementById('list').innerHTML = '<div class="loading">Loading vehicles…</div>';
+  try{
+    const res = await fetch(`${GAS_URL}?action=getJobs`);
+    const data = await res.json();
+    if(data.success){
+      vehicles = data.jobs;
+      render();
+    } else {
+      showToast("Failed to load vehicles", true);
+    }
+  } catch(err){
+    document.getElementById('list').innerHTML = '<div class="loading">Connection error. Pull down to retry.</div>';
+  }
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function updateCounts(){
+  document.getElementById('count-all').textContent = vehicles.length;
+  STATUS_FLOW.forEach(s=>{
+    document.getElementById('count-'+s).textContent = vehicles.filter(v=>v.Status===s).length;
+  });
+}
+
+function render(){
+  updateCounts();
+  const listEl = document.getElementById('list');
+  let filtered = vehicles.filter(v=>{
+    const matchesStatus = activeFilter==="all" || v.Status===activeFilter;
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term ||
+      (v.VehicleNo||"").toLowerCase().includes(term) ||
+      (v.CustomerName||"").toLowerCase().includes(term);
+    return matchesStatus && matchesSearch;
+  });
+
+  const order = {intake:0, start:1, finished:2, delivered:3};
+  filtered.sort((a,b)=>order[a.Status]-order[b.Status]);
+
+  if(filtered.length===0){
+    listEl.innerHTML = `<div class="empty-state"><div class="icon">&#128269;</div><p>No vehicles found</p></div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(v=>{
+    const nextLabel = NEXT_LABEL[v.Status];
+    const actionBtn = nextLabel
+      ? `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`
+      : `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
+
+    const mechanicOptions = ['<option value="">Not assigned</option>']
+      .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+      .join('');
+
+    return `
+    <div class="card" data-status="${v.Status}">
+      <div class="card-top">
+        <div>
+          <div class="veh-no">${v.VehicleNo}</div>
+          <div class="cust-name">${v.CustomerName}</div>
+        </div>
+        <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
+      </div>
+      <div class="card-meta">
+        <span>&#128197; ${v.IntakeDate||''}</span>
+        <span>&#128337; ${v.IntakeTime||''}</span>
+      </div>
+      <div class="mechanic-row">
+        <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
+          ${mechanicOptions}
+        </select>
+      </div>
+      <div class="card-actions">
+        ${actionBtn}
+        <button class="btn-status call" onclick="callCustomer('${v.Phone}')">&#128222;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+async function advanceStatus(jobId){
+  const v = vehicles.find(x=>x.JobID===jobId);
+  const idx = STATUS_FLOW.indexOf(v.Status);
+  if(idx >= STATUS_FLOW.length-1) return;
+  const newStatus = STATUS_FLOW[idx+1];
+
+  // optimistic update
+  v.Status = newStatus;
+  render();
+
+  try{
+    const res = await fetch(`${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}`);
+    const data = await res.json();
+    if(data.success){
+      showToast(`${v.VehicleNo} → ${STATUS_LABEL[newStatus]}`);
+    } else {
+      showToast("Update failed, refreshing…", true);
+      loadJobs();
+    }
+  } catch(err){
+    showToast("Connection error, refreshing…", true);
+    loadJobs();
+  }
+}
+
+async function assignMechanic(jobId, mechanic){
+  const v = vehicles.find(x=>x.JobID===jobId);
+  v.Mechanic = mechanic;
+  try{
+    const res = await fetch(`${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}`);
+    const data = await res.json();
+    if(data.success){
+      showToast(mechanic ? `Assigned to ${mechanic}` : "Mechanic cleared");
+    }
+  } catch(err){
+    showToast("Could not save mechanic", true);
+  }
+}
+
+function callCustomer(phone){
+  window.location.href = 'tel:'+phone;
+}
+
+/* =========================================================
+   ADD VEHICLE MODAL
+   ========================================================= */
+function openAddModal(){
+  document.getElementById('newVehicleNo').value = '';
+  document.getElementById('newCustomerName').value = '';
+  document.getElementById('newPhone').value = '';
+  document.getElementById('newMechanic').value = '';
+  // default date = today
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('newIntakeDate').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('addModalOverlay').classList.add('show');
+}
+
+function closeAddModal(){
+  document.getElementById('addModalOverlay').classList.remove('show');
+}
+
+async function submitNewVehicle(){
+  const vehicleNo = document.getElementById('newVehicleNo').value.trim().toUpperCase();
+  const customerName = document.getElementById('newCustomerName').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
+  const intakeDate = document.getElementById('newIntakeDate').value;
+  const mechanic = document.getElementById('newMechanic').value;
+
+  if(!vehicleNo || !customerName){
+    showToast("Vehicle number and customer name required", true);
+    return;
+  }
+
+  const params = new URLSearchParams({
+    action: 'addJob',
+    vehicleNo, customerName, phone, intakeDate, mechanic,
+    username: currentUser ? currentUser.username : ''
+  });
+
+  try{
+    const res = await fetch(`${GAS_URL}?${params.toString()}`);
+    const data = await res.json();
+    if(data.success){
+      showToast("Vehicle added");
+      closeAddModal();
+      loadJobs();
+    } else {
+      showToast(data.message || "Failed to add", true);
+    }
+  } catch(err){
+    showToast("Connection error", true);
+  }
+}
+
+/* =========================================================
+   SEARCH & FILTER
+   ========================================================= */
+document.getElementById('searchInput').addEventListener('input', e=>{
+  searchTerm = e.target.value;
+  document.getElementById('clearBtn').classList.toggle('show', searchTerm.length>0);
+  render();
+});
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  document.getElementById('searchInput').value='';
+  searchTerm='';
+  document.getElementById('clearBtn').classList.remove('show');
+  render();
+});
+document.getElementById('filters').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  activeFilter = chip.dataset.status;
+  render();
+});
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+function showToast(msg, isError){
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+// Allow Enter key on login
+document.getElementById('loginPin').addEventListener('keypress', e=>{
+  if(e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
