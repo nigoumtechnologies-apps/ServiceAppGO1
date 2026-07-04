@@ -6,6 +6,7 @@
 <title>AutoServe — Vehicle Status</title>
 <style>
   :root{
+    --page-bg:#f2f3f5;
     --charcoal:#1c2024;
     --charcoal-2:#262b30;
     --steel:#3a4148;
@@ -19,14 +20,28 @@
     --text:#eef1f3;
     --text-dim:#9aa4ab;
     --text-faint:#6b7580;
+
+    /* Card colors — one distinct look per stage */
+    --card-intake-bg:#fff8e1;
+    --card-intake-border:#e0a325;
+    --card-intake-text:#5c4300;
+    --card-start-bg:#fff1e8;
+    --card-start-border:#ff6b1a;
+    --card-start-text:#7a2e00;
+    --card-finished-bg:#e8f8f2;
+    --card-finished-border:#1fa693;
+    --card-finished-text:#0a4438;
+    --card-delivered-bg:#1c2024;
+    --card-delivered-border:#454d55;
+    --card-delivered-text:#eef1f3;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
-    background:var(--charcoal); color:var(--text);
+    background:var(--page-bg); color:var(--text);
     font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
     min-height:100vh; -webkit-tap-highlight-color:transparent;
   }
-  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
+  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; background:var(--page-bg);}
   input, select, button{font-family:inherit;}
 
   /* ---------------- LOGIN SCREEN ---------------- */
@@ -190,19 +205,37 @@
     background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-left:4px solid var(--steel-line);
     border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
   }
-  .card[data-status="intake"]{border-left-color:var(--amber);}
-  .card[data-status="start"]{border-left-color:var(--orange);}
-  .card[data-status="finished"]{border-left-color:var(--teal);}
-  .card[data-status="delivered"]{border-left-color:var(--text-faint); opacity:0.6;}
+  .card[data-status="intake"]{
+    background:var(--card-intake-bg); border-color:var(--card-intake-border); border-left-color:var(--card-intake-border);
+  }
+  .card[data-status="start"]{
+    background:var(--card-start-bg); border-color:var(--card-start-border); border-left-color:var(--card-start-border);
+  }
+  .card[data-status="finished"]{
+    background:var(--card-finished-bg); border-color:var(--card-finished-border); border-left-color:var(--card-finished-border);
+  }
+  .card[data-status="delivered"]{
+    background:var(--card-delivered-bg); border-color:var(--card-delivered-border); border-left-color:var(--card-delivered-border);
+  }
+
+  .card[data-status="intake"] .veh-no, .card[data-status="intake"] .cust-name{color:var(--card-intake-text);}
+  .card[data-status="start"] .veh-no, .card[data-status="start"] .cust-name{color:var(--card-start-text);}
+  .card[data-status="finished"] .veh-no, .card[data-status="finished"] .cust-name{color:var(--card-finished-text);}
+  .card[data-status="delivered"] .veh-no, .card[data-status="delivered"] .cust-name{color:var(--card-delivered-text);}
+
+  .card[data-status="intake"] .card-meta{color:#8a6d00;}
+  .card[data-status="start"] .card-meta{color:#a34400;}
+  .card[data-status="finished"] .card-meta{color:#0d6b56;}
+  .card[data-status="delivered"] .card-meta{color:var(--text-faint);}
 
   .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
   .veh-no{font-size:17px; font-weight:800; letter-spacing:0.5px; font-family:'Consolas', monospace;}
   .cust-name{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
   .status-tag{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 9px; border-radius:6px; white-space:nowrap;}
-  .status-tag[data-status="intake"]{background:var(--amber-dim); color:var(--amber);}
-  .status-tag[data-status="start"]{background:var(--orange-dim); color:var(--orange);}
-  .status-tag[data-status="finished"]{background:var(--teal-dim); color:var(--teal);}
-  .status-tag[data-status="delivered"]{background:var(--steel); color:var(--text-faint);}
+  .status-tag[data-status="intake"]{background:var(--card-intake-border); color:#fff;}
+  .status-tag[data-status="start"]{background:var(--card-start-border); color:#fff;}
+  .status-tag[data-status="finished"]{background:var(--card-finished-border); color:#fff;}
+  .status-tag[data-status="delivered"]{background:var(--steel); color:var(--text);}
 
   .card-meta{display:flex; gap:12px; font-size:11.5px; color:var(--text-faint); flex-wrap:wrap;}
   .card-meta span{display:flex; align-items:center; gap:4px;}
@@ -254,6 +287,21 @@
   }
   .toast.show{transform:translateX(-50%) translateY(0);}
   .toast.error{background:var(--orange); color:#2e1500;}
+
+  /* ---------------- CONFIRM DIALOG ---------------- */
+  .confirm-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:70; display:none;
+    align-items:center; justify-content:center; padding:24px;
+  }
+  .confirm-overlay.show{display:flex;}
+  .confirm-box{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:14px;
+    padding:22px 20px; max-width:340px; width:100%; box-shadow:0 12px 32px rgba(0,0,0,0.5);
+  }
+  .confirm-message{font-size:15px; font-weight:700; color:var(--text); text-align:center; margin-bottom:18px; line-height:1.4;}
+  .confirm-actions{display:flex; gap:10px;}
+  .confirm-no{flex:1; background:var(--steel); color:var(--text-dim); border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:700; cursor:pointer;}
+  .confirm-yes{flex:1; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:800; cursor:pointer;}
   .loading{text-align:center; padding:40px; color:var(--text-faint); font-size:13px;}
 </style>
 </head>
@@ -316,7 +364,7 @@
   </header>
 
   <div class="filters" id="filters">
-    <div class="chip active" data-status="all">All <span class="chip-count" id="count-all">0</span></div>
+    <div class="chip active" data-status="all" id="allChip">All <span class="chip-count" id="count-all">0</span></div>
     <div class="chip" data-status="intake"><span class="dot"></span>Intake <span class="chip-count" id="count-intake">0</span></div>
     <div class="chip" data-status="start"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
     <div class="chip" data-status="finished"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
@@ -399,6 +447,17 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ============ CONFIRM DIALOG (accidental-change protection) ============ -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-message" id="confirmMessage">Are you sure?</div>
+    <div class="confirm-actions">
+      <button class="confirm-no" id="confirmNoBtn">Cancel</button>
+      <button class="confirm-yes" id="confirmYesBtn">Yes, Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================
    CONFIG — set this to your deployed GAS Web App /exec URL
@@ -457,6 +516,26 @@ function enterApp(){
   document.getElementById('userRole').textContent = currentUser.role || "";
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
+
+  // Restrict "All" view and Dashboard to Admin role only.
+  // Non-admin staff should only see and work one status queue at a time —
+  // showing the full mixed list is what caused accidental status changes
+  // on the wrong vehicle before.
+  const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
+  const allChip = document.getElementById('allChip');
+  const dashBtn = document.getElementById('dashBtn');
+  if(!isAdmin){
+    allChip.style.display = 'none';
+    dashBtn.style.display = 'none';
+    // Default non-admin staff to the Intake queue instead of All
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    document.querySelector('.chip[data-status="intake"]').classList.add('active');
+    activeFilter = 'intake';
+  } else {
+    allChip.style.display = '';
+    dashBtn.style.display = '';
+  }
+
   initApp();
 }
 
@@ -624,8 +703,7 @@ function render(){
 /* =========================================================
    ACTIONS
    ========================================================= */
-async function advanceStatus(jobId){
-  console.log('[advanceStatus] clicked, jobId=', jobId);
+function advanceStatus(jobId){
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   if(!v){
     console.error('[advanceStatus] No matching vehicle found for jobId', jobId, vehicles);
@@ -636,17 +714,25 @@ async function advanceStatus(jobId){
   if(idx >= STATUS_FLOW.length-1) return;
   const newStatus = STATUS_FLOW[idx+1];
 
+  showConfirm(
+    `Move ${v.VehicleNo} to "${STATUS_LABEL[newStatus]}"?`,
+    () => confirmedAdvanceStatus(jobId, newStatus)
+  );
+}
+
+async function confirmedAdvanceStatus(jobId, newStatus){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
   // optimistic update
   const prevStatus = v.Status;
   v.Status = newStatus;
   render();
 
   try{
-    const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}`;
-    console.log('[advanceStatus] fetching', url);
+    const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
     const res = await fetch(url);
     const data = await res.json();
-    console.log('[advanceStatus] response', data);
     if(data.success){
       showToast(`${v.VehicleNo} → ${STATUS_LABEL[newStatus]}`);
     } else {
@@ -935,6 +1021,36 @@ function showToast(msg, isError){
   toast.classList.toggle('error', !!isError);
   toast.classList.add('show');
   setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+/* =========================================================
+   CONFIRM DIALOG — accidental stage-change protection
+   Every status button (Start Work / Mark Finished / Deliver)
+   routes through here first. Nothing changes on the sheet
+   until the user explicitly taps "Yes, Confirm".
+   ========================================================= */
+function showConfirm(message, onConfirm){
+  const overlay = document.getElementById('confirmOverlay');
+  const yesBtn = document.getElementById('confirmYesBtn');
+  const noBtn = document.getElementById('confirmNoBtn');
+  document.getElementById('confirmMessage').textContent = message;
+
+  // Clone buttons to strip any previously-attached listeners
+  // (prevents old confirms from double-firing on repeated use)
+  const newYes = yesBtn.cloneNode(true);
+  const newNo = noBtn.cloneNode(true);
+  yesBtn.parentNode.replaceChild(newYes, yesBtn);
+  noBtn.parentNode.replaceChild(newNo, noBtn);
+
+  newYes.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+    onConfirm();
+  });
+  newNo.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+  });
+
+  overlay.classList.add('show');
 }
 
 // Allow Enter key on login
