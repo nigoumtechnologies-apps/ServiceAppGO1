@@ -1,5 +1,5 @@
 /**********************************************************************
- * AUTOSERVE — VEHICLE STATUS TRACKER — GOOGLE APPS SCRIPT BACKEND
+ * AUTOSERVE — VEHICLE STATUS TRACKER — GOOGLE APPS SCRIPT BACKEND (v2)
  * ---------------------------------------------------------------
  * Sheet structure required (create these 3 tabs in one Spreadsheet):
  *
@@ -9,16 +9,17 @@
  *   admin    | 9999 | Owner      | Manager
  *
  * TAB 2: "Lists"   (dropdown config, sheet-driven like AutoServe)
- *   Mechanics
- *   Ravi
- *   Kumar
- *   Suresh
+ *   Mechanics | JobcardType
+ *   Ravi      | Service
+ *   Kumar     | Repair
+ *   Suresh    | Warranty
+ *             | Insurance
  *
  * TAB 3: "JobCards"
- *   JobID | VehicleNo | CustomerName | Phone | IntakeDate | Status |
+ *   JobID | VehicleNo | CustomerName | Phone | IntakeDate | JobcardType | Status |
  *   IntakeTime | StartTime | FinishTime | DeliveredTime | Mechanic | CreatedBy
  *
- * DEPLOY: Extensions > Apps Script > paste this code > Deploy > 
+ * DEPLOY: Extensions > Apps Script > paste this code > Deploy >
  *         New deployment > Web app > Execute as: Me > Who has access: Anyone
  *         Copy the /exec URL into GAS_URL in the HTML file.
  * IMPORTANT: Redeploy (new version) every time you edit this script.
@@ -28,6 +29,7 @@ var SS = SpreadsheetApp.getActiveSpreadsheet();
 var SHEET_USERS = "Users";
 var SHEET_LISTS = "Lists";
 var SHEET_JOBS = "JobCards";
+var DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
 function doGet(e) {
   var action = e.parameter.action;
@@ -45,6 +47,10 @@ function doGet(e) {
   }
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function nowStr() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), DATETIME_FORMAT);
 }
 
 /* ---------------- LOGIN ---------------- */
@@ -101,8 +107,7 @@ function getJobs() {
     headers.forEach(function (h, colIdx) {
       var val = data[i][colIdx];
       if (val instanceof Date) {
-        // Format dates/times as strings for JSON
-        val = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+        val = Utilities.formatDate(val, Session.getScriptTimeZone(), DATETIME_FORMAT);
       }
       job[h] = val;
     });
@@ -111,36 +116,59 @@ function getJobs() {
   return { success: true, jobs: jobs };
 }
 
-/* ---------------- ADD NEW JOB (INTAKE) ---------------- */
+/* ---------------- ADD NEW JOB (INTAKE) ---------------- *
+ * jobId is now REQUIRED and user-entered (not auto-generated).
+ * Duplicate-submit protection: if the same JobID already exists,
+ * reject instead of creating a second row (fixes double-row bug
+ * caused by double-tapping Save on slow mobile networks).
+ */
 function addJob(p) {
   var sheet = SS.getSheetByName(SHEET_JOBS);
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var jobId = "JC" + new Date().getTime();
-  var now = new Date();
-  var nowStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "hh:mm a");
 
-  // intakeDate comes from the date picker (yyyy-MM-dd); default to today if missing
-  var intakeDate = p.intakeDate || Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  var jobId = (p.jobId || "").toString().trim();
+  if (!jobId) {
+    return { success: false, message: "Jobcard Number is required" };
+  }
 
-  var rowData = {
-    JobID: jobId,
-    VehicleNo: p.vehicleNo || "",
-    CustomerName: p.customerName || "",
-    Phone: p.phone || "",
-    IntakeDate: intakeDate,
-    Status: "intake",
-    IntakeTime: nowStr,
-    StartTime: "",
-    FinishTime: "",
-    DeliveredTime: "",
-    Mechanic: p.mechanic || "",
-    CreatedBy: p.username || ""
-  };
+  // --- Duplicate check (prevents double-row on double submit) ---
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000); // wait up to 10s for other concurrent submits to finish
+  try {
+    var data = sheet.getDataRange().getValues();
+    var colJobId = headers.indexOf("JobID");
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][colJobId]).trim().toLowerCase() === jobId.toLowerCase()) {
+        return { success: false, message: "Jobcard Number already exists. Use a different number." };
+      }
+    }
 
-  var newRow = headers.map(function (h) { return rowData[h] !== undefined ? rowData[h] : ""; });
-  sheet.appendRow(newRow);
+    var timestamp = nowStr();
+    var intakeDate = p.intakeDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
 
-  return { success: true, jobId: jobId };
+    var rowData = {
+      JobID: jobId,
+      VehicleNo: p.vehicleNo || "",
+      CustomerName: p.customerName || "",
+      Phone: p.phone || "",
+      IntakeDate: intakeDate,
+      JobcardType: p.jobcardType || "",
+      Status: "intake",
+      IntakeTime: timestamp,
+      StartTime: "",
+      FinishTime: "",
+      DeliveredTime: "",
+      Mechanic: p.mechanic || "",
+      CreatedBy: p.username || ""
+    };
+
+    var newRow = headers.map(function (h) { return rowData[h] !== undefined ? rowData[h] : ""; });
+    sheet.appendRow(newRow);
+
+    return { success: true, jobId: jobId };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ---------------- UPDATE STATUS (Intake -> Start -> Finished -> Delivered) ---------------- */
@@ -158,16 +186,15 @@ function updateStatus(p) {
     delivered: "DeliveredTime"
   };
   var timeCol = headers.indexOf(timeColMap[p.status]);
-  var now = new Date();
-  var nowStr = Utilities.formatDate(now, Session.getScriptTimeZone(), "hh:mm a");
+  var timestamp = nowStr();
 
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][colJobId]).trim() === String(p.jobId).trim()) {
       sheet.getRange(i + 1, colStatus + 1).setValue(p.status);
       if (timeCol > -1) {
-        sheet.getRange(i + 1, timeCol + 1).setValue(nowStr);
+        sheet.getRange(i + 1, timeCol + 1).setValue(timestamp);
       }
-      return { success: true, jobId: p.jobId, status: p.status, time: nowStr };
+      return { success: true, jobId: p.jobId, status: p.status, time: timestamp };
     }
   }
   return { success: false, message: "JobID not found" };

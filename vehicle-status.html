@@ -235,7 +235,7 @@
     </div>
     <div class="search-wrap">
       <span class="search-icon">&#128269;</span>
-      <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle no. or customer name">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle number or jobcard no.">
       <button class="search-clear" id="clearBtn">&times;</button>
     </div>
   </header>
@@ -260,20 +260,22 @@
     <div class="modal-title">New Vehicle Intake</div>
 
     <div class="modal-field">
+      <label>Jobcard Number <span style="color:var(--orange);">*</span></label>
+      <input type="text" id="newJobId" placeholder="e.g. JC1001" autocomplete="off">
+    </div>
+    <div class="modal-field">
       <label>Vehicle Number</label>
       <input type="text" id="newVehicleNo" placeholder="TN 45 AB 1234" style="text-transform:uppercase;">
     </div>
     <div class="modal-field">
-      <label>Customer Name</label>
-      <input type="text" id="newCustomerName" placeholder="Customer name">
-    </div>
-    <div class="modal-field">
-      <label>Phone Number</label>
-      <input type="tel" id="newPhone" inputmode="numeric" placeholder="10-digit mobile">
-    </div>
-    <div class="modal-field">
       <label>Intake Date</label>
       <input type="date" id="newIntakeDate">
+    </div>
+    <div class="modal-field">
+      <label>Jobcard Type</label>
+      <select id="newJobcardType">
+        <option value="">Select type</option>
+      </select>
     </div>
     <div class="modal-field">
       <label>Assign Mechanic (optional)</label>
@@ -295,16 +297,18 @@
 /* =========================================================
    CONFIG — set this to your deployed GAS Web App /exec URL
    ========================================================= */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxvYTFSweC0XcWzx66EQtaOMTfYnxPFdRz2qIVMf7cvv6bGAAk8YMZtb4Nlf0HZG8QqAg/exec";
+const GAS_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 
 /* =========================================================
    STATE
    ========================================================= */
 let vehicles = [];
 let mechanicsList = [];
+let jobcardTypeList = [];
 let currentUser = null;
 let activeFilter = "all";
 let searchTerm = "";
+let isSubmitting = false;
 
 const STATUS_FLOW = ["intake","start","finished","delivered"];
 const STATUS_LABEL = {intake:"Intake", start:"Work Start", finished:"Finished", delivered:"Delivered"};
@@ -330,11 +334,8 @@ async function doLogin(){
     const data = await res.json();
     if(data.success){
       currentUser = data;
-      document.getElementById('userName').textContent = data.fullName || data.username;
-      document.getElementById('userRole').textContent = data.role || "";
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('mainApp').style.display = 'flex';
-      initApp();
+      localStorage.setItem('autoserve_user', JSON.stringify(data));
+      enterApp();
     } else {
       errEl.textContent = data.message || "Login failed";
     }
@@ -343,13 +344,35 @@ async function doLogin(){
   }
 }
 
+function enterApp(){
+  document.getElementById('userName').textContent = currentUser.fullName || currentUser.username;
+  document.getElementById('userRole').textContent = currentUser.role || "";
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  initApp();
+}
+
 function logout(){
   currentUser = null;
+  localStorage.removeItem('autoserve_user');
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('loginUsername').value = '';
   document.getElementById('loginPin').value = '';
 }
+
+// Restore session on page load/refresh (fixes forced-logout-on-refresh bug)
+(function restoreSession(){
+  const saved = localStorage.getItem('autoserve_user');
+  if(saved){
+    try{
+      currentUser = JSON.parse(saved);
+      enterApp();
+    } catch(e){
+      localStorage.removeItem('autoserve_user');
+    }
+  }
+})();
 
 /* =========================================================
    INIT — load lists + jobs after login
@@ -365,12 +388,18 @@ async function loadLists(){
     const data = await res.json();
     if(data.success){
       mechanicsList = data.lists.Mechanics || [];
-      const sel = document.getElementById('newMechanic');
-      sel.innerHTML = '<option value="">Not assigned yet</option>' +
+      jobcardTypeList = data.lists.JobcardType || [];
+
+      const mechSel = document.getElementById('newMechanic');
+      mechSel.innerHTML = '<option value="">Not assigned yet</option>' +
         mechanicsList.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+      const typeSel = document.getElementById('newJobcardType');
+      typeSel.innerHTML = '<option value="">Select type</option>' +
+        jobcardTypeList.map(t=>`<option value="${t}">${t}</option>`).join('');
     }
   } catch(err){
-    showToast("Could not load mechanic list", true);
+    showToast("Could not load setup lists", true);
   }
 }
 
@@ -408,7 +437,7 @@ function render(){
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
-      (v.CustomerName||"").toLowerCase().includes(term);
+      (v.JobID||"").toLowerCase().includes(term);
     return matchesStatus && matchesSearch;
   });
 
@@ -435,11 +464,12 @@ function render(){
       <div class="card-top">
         <div>
           <div class="veh-no">${v.VehicleNo}</div>
-          <div class="cust-name">${v.CustomerName}</div>
+          ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
         </div>
         <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
       </div>
       <div class="card-meta">
+        <span>#${v.JobID}</span>
         <span>&#128197; ${v.IntakeDate||''}</span>
         <span>&#128337; ${v.IntakeTime||''}</span>
       </div>
@@ -450,7 +480,6 @@ function render(){
       </div>
       <div class="card-actions">
         ${actionBtn}
-        <button class="btn-status call" onclick="callCustomer('${v.Phone}')">&#128222;</button>
       </div>
     </div>`;
   }).join('');
@@ -498,17 +527,13 @@ async function assignMechanic(jobId, mechanic){
   }
 }
 
-function callCustomer(phone){
-  window.location.href = 'tel:'+phone;
-}
-
 /* =========================================================
    ADD VEHICLE MODAL
    ========================================================= */
 function openAddModal(){
+  document.getElementById('newJobId').value = '';
   document.getElementById('newVehicleNo').value = '';
-  document.getElementById('newCustomerName').value = '';
-  document.getElementById('newPhone').value = '';
+  document.getElementById('newJobcardType').value = '';
   document.getElementById('newMechanic').value = '';
   // default date = today
   const today = new Date();
@@ -524,20 +549,33 @@ function closeAddModal(){
 }
 
 async function submitNewVehicle(){
+  // Guard against double-tap / double-submit (fixes duplicate-row bug)
+  if(isSubmitting) return;
+
+  const jobId = document.getElementById('newJobId').value.trim();
   const vehicleNo = document.getElementById('newVehicleNo').value.trim().toUpperCase();
-  const customerName = document.getElementById('newCustomerName').value.trim();
-  const phone = document.getElementById('newPhone').value.trim();
   const intakeDate = document.getElementById('newIntakeDate').value;
+  const jobcardType = document.getElementById('newJobcardType').value;
   const mechanic = document.getElementById('newMechanic').value;
 
-  if(!vehicleNo || !customerName){
-    showToast("Vehicle number and customer name required", true);
+  if(!jobId){
+    showToast("Jobcard Number is required", true);
+    return;
+  }
+  if(!vehicleNo){
+    showToast("Vehicle number required", true);
     return;
   }
 
+  const saveBtn = document.querySelector('.btn-save');
+  isSubmitting = true;
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving…";
+  saveBtn.style.opacity = "0.6";
+
   const params = new URLSearchParams({
     action: 'addJob',
-    vehicleNo, customerName, phone, intakeDate, mechanic,
+    jobId, vehicleNo, intakeDate, jobcardType, mechanic,
     username: currentUser ? currentUser.username : ''
   });
 
@@ -553,6 +591,11 @@ async function submitNewVehicle(){
     }
   } catch(err){
     showToast("Connection error", true);
+  } finally {
+    isSubmitting = false;
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Intake";
+    saveBtn.style.opacity = "1";
   }
 }
 
