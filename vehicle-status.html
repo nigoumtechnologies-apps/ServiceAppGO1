@@ -517,26 +517,41 @@ function render(){
    ACTIONS
    ========================================================= */
 async function advanceStatus(jobId){
+  console.log('[advanceStatus] clicked, jobId=', jobId);
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v){
+    console.error('[advanceStatus] No matching vehicle found for jobId', jobId, vehicles);
+    showToast("Error: vehicle not found (JobID mismatch)", true);
+    return;
+  }
+  const idx = STATUS_FLOW.indexOf(v.Status);
   if(idx >= STATUS_FLOW.length-1) return;
   const newStatus = STATUS_FLOW[idx+1];
 
   // optimistic update
+  const prevStatus = v.Status;
   v.Status = newStatus;
   render();
 
   try{
-    const res = await fetch(`${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}`);
+    const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}`;
+    console.log('[advanceStatus] fetching', url);
+    const res = await fetch(url);
     const data = await res.json();
+    console.log('[advanceStatus] response', data);
     if(data.success){
       showToast(`${v.VehicleNo} → ${STATUS_LABEL[newStatus]}`);
     } else {
-      showToast("Update failed, refreshing…", true);
-      loadJobs();
+      console.error('[advanceStatus] server rejected update:', data.message);
+      showToast("Failed: " + (data.message||"unknown error"), true);
+      v.Status = prevStatus;
+      render();
     }
   } catch(err){
-    showToast("Connection error, refreshing…", true);
-    loadJobs();
+    console.error('[advanceStatus] fetch error', err);
+    showToast("Connection error: " + err.message, true);
+    v.Status = prevStatus;
+    render();
   }
 }
 
