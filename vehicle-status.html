@@ -517,8 +517,7 @@ function render(){
    ACTIONS
    ========================================================= */
 async function advanceStatus(jobId){
-  const v = vehicles.find(x=>x.JobID===jobId);
-  const idx = STATUS_FLOW.indexOf(v.Status);
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   if(idx >= STATUS_FLOW.length-1) return;
   const newStatus = STATUS_FLOW[idx+1];
 
@@ -542,7 +541,7 @@ async function advanceStatus(jobId){
 }
 
 async function assignMechanic(jobId, mechanic){
-  const v = vehicles.find(x=>x.JobID===jobId);
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   v.Mechanic = mechanic;
   try{
     const res = await fetch(`${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}`);
