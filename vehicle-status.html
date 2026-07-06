@@ -176,8 +176,10 @@
   .chip .dot{width:7px; height:7px; border-radius:50%; background:currentColor;}
   .chip.active{color:var(--charcoal); border-color:transparent;}
   .chip[data-status="all"].active{background:var(--text); color:var(--charcoal);}
-  .chip[data-status="intake"]{color:var(--amber);}
-  .chip[data-status="intake"].active{background:var(--amber); color:#2a2108;}
+  .chip[data-status="intake_today"]{color:var(--amber);}
+  .chip[data-status="intake_today"].active{background:var(--amber); color:#2a2108;}
+  .chip[data-status="intake_previous"]{color:#b8860b;}
+  .chip[data-status="intake_previous"].active{background:#b8860b; color:#2a2108;}
   .chip[data-status="start"]{color:var(--orange);}
   .chip[data-status="start"].active{background:var(--orange); color:#2e1500;}
   .chip[data-status="finished"]{color:var(--teal);}
@@ -365,10 +367,11 @@
 
   <div class="filters" id="filters">
     <div class="chip active" data-status="all" id="allChip">All <span class="chip-count" id="count-all">0</span></div>
-    <div class="chip" data-status="intake"><span class="dot"></span>Intake <span class="chip-count" id="count-intake">0</span></div>
+    <div class="chip" data-status="intake_today"><span class="dot"></span>Today Intake <span class="chip-count" id="count-intake_today">0</span></div>
+    <div class="chip" data-status="intake_previous"><span class="dot"></span>Previous Intake <span class="chip-count" id="count-intake_previous">0</span></div>
     <div class="chip" data-status="start"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
     <div class="chip" data-status="finished"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
-    <div class="chip" data-status="delivered"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
+    <div class="chip" data-status="delivered"><span class="dot"></span>Delivered Today <span class="chip-count" id="count-delivered">0</span></div>
   </div>
 
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
@@ -582,8 +585,8 @@ function enterApp(){
     dashBtn.style.display = 'none';
     // Default non-admin staff to the Intake queue instead of All
     document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-    document.querySelector('.chip[data-status="intake"]').classList.add('active');
-    activeFilter = 'intake';
+    document.querySelector('.chip[data-status="intake_today"]').classList.add('active');
+    activeFilter = 'intake_today';
   } else {
     allChip.style.display = '';
     dashBtn.style.display = '';
@@ -686,10 +689,31 @@ async function loadJobs(silent){
 /* =========================================================
    RENDER
    ========================================================= */
+function todayDateStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Single source of truth for what each chip means, used by both
+// the counts in the filter bar and the actual list filtering —
+// keeps them from ever drifting out of sync with each other.
+function matchesFilter(v, filterKey){
+  const today = todayDateStr();
+  const intakeDateStr = (v.IntakeDate||"").toString().slice(0,10);
+  const deliveredDateStr = (v.DeliveredTime||"").toString().slice(0,10);
+
+  if(filterKey === "all") return true;
+  if(filterKey === "intake_today") return v.Status==="intake" && intakeDateStr === today;
+  if(filterKey === "intake_previous") return v.Status==="intake" && intakeDateStr !== "" && intakeDateStr < today;
+  if(filterKey === "delivered") return v.Status==="delivered" && deliveredDateStr === today;
+  // start / finished — unchanged, straightforward status match
+  return v.Status === filterKey;
+}
+
 function updateCounts(){
   document.getElementById('count-all').textContent = vehicles.length;
-  STATUS_FLOW.forEach(s=>{
-    document.getElementById('count-'+s).textContent = vehicles.filter(v=>v.Status===s).length;
+  ["intake_today","intake_previous","start","finished","delivered"].forEach(key=>{
+    document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
   });
 }
 
@@ -697,7 +721,7 @@ function render(){
   updateCounts();
   const listEl = document.getElementById('list');
   let filtered = vehicles.filter(v=>{
-    const matchesStatus = activeFilter==="all" || v.Status===activeFilter;
+    const matchesStatus = matchesFilter(v, activeFilter);
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
