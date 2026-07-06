@@ -391,8 +391,61 @@
     <div class="modal-handle"></div>
     <div class="modal-title" id="historyModalTitle">Vehicle History</div>
     <div id="historyModalBody"></div>
+    <div class="modal-actions" id="historyAdminActions" style="display:none;">
+      <button class="btn-cancel" style="flex:1; background:#c0392b; color:#fff;" onclick="startDeleteJob()">Delete</button>
+      <button class="btn-save" style="flex:1;" onclick="openEditModal()">Edit</button>
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" style="flex:1;" onclick="closeHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN EDIT JOB CARD MODAL ============ -->
+<div class="modal-overlay" id="editModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Jobcard — <span id="editModalJobId"></span></div>
+
+    <div class="modal-field">
+      <label>Vehicle Number</label>
+      <input type="text" id="editVehicleNo" style="text-transform:uppercase;">
+    </div>
+    <div class="modal-field">
+      <label>Intake Date</label>
+      <input type="date" id="editIntakeDate">
+    </div>
+    <div class="modal-row-2">
+      <div class="modal-field">
+        <label>Est. Delivery Date</label>
+        <input type="date" id="editEstDeliveryDate">
+      </div>
+      <div class="modal-field">
+        <label>Est. Delivery Time</label>
+        <input type="time" id="editEstDeliveryTime">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Jobcard Type</label>
+      <select id="editJobcardType"></select>
+    </div>
+    <div class="modal-field">
+      <label>Mechanic</label>
+      <select id="editMechanic"></select>
+    </div>
+    <div class="modal-field">
+      <label>Status (Admin can jump to any stage)</label>
+      <select id="editStatus">
+        <option value="intake">Intake</option>
+        <option value="start">Work Start</option>
+        <option value="finished">Finished</option>
+        <option value="delivered">Delivered</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-save" onclick="submitEditJob()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1005,11 +1058,127 @@ function openHistoryModal(jobId){
   `;
 
   document.getElementById('historyModalBody').innerHTML = metaHtml + '<div style="margin-top:14px;">' + stageHtml + '</div>';
+
+  // Admin-only edit/delete actions
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  document.getElementById('historyAdminActions').style.display = isAdmin ? 'flex' : 'none';
+  currentHistoryJobId = jobId;
+
   document.getElementById('historyModalOverlay').classList.add('show');
 }
 
 function closeHistoryModal(){
   document.getElementById('historyModalOverlay').classList.remove('show');
+}
+
+/* =========================================================
+   ADMIN: EDIT JOB CARD
+   ========================================================= */
+let currentHistoryJobId = null;
+
+function openEditModal(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  document.getElementById('editModalJobId').textContent = '#' + v.JobID;
+  document.getElementById('editVehicleNo').value = v.VehicleNo || '';
+  document.getElementById('editIntakeDate').value = (v.IntakeDate||'').toString().slice(0,10);
+  document.getElementById('editEstDeliveryDate').value = (v.EstDeliveryDate||'').toString().slice(0,10);
+  document.getElementById('editEstDeliveryTime').value = v.EstDeliveryTime || '';
+  document.getElementById('editStatus').value = v.Status || 'intake';
+
+  const typeSel = document.getElementById('editJobcardType');
+  typeSel.innerHTML = '<option value="">Select type</option>' +
+    jobcardTypeList.map(t=>`<option value="${t}" ${v.JobcardType===t?'selected':''}>${t}</option>`).join('');
+
+  const mechSel = document.getElementById('editMechanic');
+  mechSel.innerHTML = '<option value="">Not assigned</option>' +
+    mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`).join('');
+
+  closeHistoryModal();
+  document.getElementById('editModalOverlay').classList.add('show');
+}
+
+function closeEditModal(){
+  document.getElementById('editModalOverlay').classList.remove('show');
+}
+
+async function submitEditJob(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  const vehicleNo = document.getElementById('editVehicleNo').value.trim().toUpperCase();
+  const intakeDate = document.getElementById('editIntakeDate').value;
+  const estDeliveryDate = document.getElementById('editEstDeliveryDate').value;
+  const estDeliveryTime = document.getElementById('editEstDeliveryTime').value;
+  const jobcardType = document.getElementById('editJobcardType').value;
+  const mechanic = document.getElementById('editMechanic').value;
+  const status = document.getElementById('editStatus').value;
+
+  if(!vehicleNo){
+    showToast("Vehicle number required", true);
+    return;
+  }
+
+  const doSave = async () => {
+    const params = new URLSearchParams({
+      action: 'editJob', jobId: currentHistoryJobId,
+      vehicleNo, intakeDate, estDeliveryDate, estDeliveryTime, jobcardType, mechanic, status,
+      username: currentUser ? currentUser.username : ''
+    });
+    try{
+      const res = await fetch(`${GAS_URL}?${params.toString()}`);
+      const data = await res.json();
+      if(data.success){
+        // Update local state immediately (optimistic)
+        v.VehicleNo = vehicleNo; v.IntakeDate = intakeDate;
+        v.EstDeliveryDate = estDeliveryDate; v.EstDeliveryTime = estDeliveryTime;
+        v.JobcardType = jobcardType; v.Mechanic = mechanic; v.Status = status;
+        showToast("Jobcard updated");
+        closeEditModal();
+        render();
+      } else {
+        showToast(data.message || "Update failed", true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+    }
+  };
+
+  if(status !== v.Status){
+    showConfirm(`Change status from "${STATUS_LABEL[v.Status]}" to "${STATUS_LABEL[status]}"?`, doSave);
+  } else {
+    doSave();
+  }
+}
+
+/* =========================================================
+   ADMIN: DELETE JOB CARD (soft delete)
+   ========================================================= */
+function startDeleteJob(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  showConfirm(`Delete jobcard #${v.JobID} (${v.VehicleNo})? This removes it from the app but keeps it in the Sheet.`, async () => {
+    const params = new URLSearchParams({
+      action: 'deleteJob', jobId: currentHistoryJobId,
+      username: currentUser ? currentUser.username : ''
+    });
+    try{
+      const res = await fetch(`${GAS_URL}?${params.toString()}`);
+      const data = await res.json();
+      if(data.success){
+        vehicles = vehicles.filter(x=>String(x.JobID)!==String(currentHistoryJobId));
+        showToast("Jobcard deleted");
+        closeHistoryModal();
+        render();
+      } else {
+        showToast(data.message || "Delete failed", true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+    }
+  });
 }
 
 /* =========================================================
@@ -1059,4 +1228,4 @@ document.getElementById('loginPin').addEventListener('keypress', e=>{
 });
 </script>
 </body>
-</html> 
+</html>
