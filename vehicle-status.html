@@ -92,6 +92,7 @@
   .refresh-btn.spinning{animation:spin 0.7s linear infinite;}
   @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   .dash-btn{background:none; border:none; color:var(--amber); font-size:17px; cursor:pointer; padding:4px;}
+  .report-btn{background:none; border:none; color:var(--teal); font-size:17px; cursor:pointer; padding:4px;}
 
   /* ---------------- DATE RANGE BAR ---------------- */
   .date-range-bar{display:flex; align-items:center; gap:8px; margin-top:10px;}
@@ -138,6 +139,25 @@
     padding:10px 14px; margin-bottom:8px; font-size:13px;
   }
   .mech-row .mech-count{font-weight:800; color:var(--orange);}
+
+  /* ---------------- DAILY REPORT CARD (styled for WhatsApp image export) ---------------- */
+  .report-card{
+    background:#ffffff; color:#1c2024; border-radius:10px; padding:16px;
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+  }
+  .report-title{font-size:15px; font-weight:800; color:#1c2024; margin-bottom:4px;}
+  .report-date{font-size:11px; color:#6b7580; margin-bottom:14px;}
+  .report-section-title{font-size:12.5px; font-weight:800; color:#1c2024; margin:16px 0 8px; border-bottom:2px solid #1c2024; padding-bottom:4px;}
+  .report-table{width:100%; border-collapse:collapse; font-size:11.5px;}
+  .report-table th{
+    text-align:left; padding:6px 8px; background:#f2f3f5; color:#1c2024;
+    border:1px solid #d5d8db; font-weight:700;
+  }
+  .report-table td{padding:6px 8px; border:1px solid #d5d8db; color:#1c2024;}
+  .report-table td.num{text-align:center; font-weight:700;}
+  .report-empty-note{font-size:11px; color:#9aa4ab; padding:10px 0; text-align:center;}
+  .report-absent-cols{display:flex; gap:12px;}
+  .report-absent-cols > div{flex:1;}
 
   /* ---------------- VEHICLE HISTORY MODAL ---------------- */
   .history-stage{
@@ -306,6 +326,7 @@
   .confirm-yes{flex:1; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:800; cursor:pointer;}
   .loading{text-align:center; padding:40px; color:var(--text-faint); font-size:13px;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -344,6 +365,7 @@
       </div>
       <div class="user-chip">
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
+        <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -386,6 +408,28 @@
     <button class="dash-close-btn" onclick="toggleDashboard()">&times;</button>
   </div>
   <div class="dashboard-body" id="dashboardBody"></div>
+</div>
+
+<!-- ============ DAILY REPORT OVERLAY ============ -->
+<div class="dashboard-overlay" id="reportOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Daily Service Report</div>
+    <button class="dash-close-btn" onclick="toggleReport()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="reportControlsBody">
+    <div class="date-range-bar" style="margin-top:0;">
+      <input type="date" class="date-range-input" id="reportFromDate">
+      <span class="date-range-sep">to</span>
+      <input type="date" class="date-range-input" id="reportToDate">
+    </div>
+    <button class="btn-save" style="width:100%; margin-top:10px;" onclick="renderReport()">Refresh Report</button>
+
+    <div id="reportCard" style="margin-top:16px;"></div>
+
+    <button class="btn-save" id="reportShareBtn" style="width:100%; margin-top:16px; background:var(--teal); color:#04211c;" onclick="shareReportToWhatsApp()">
+      &#128241; Share Report on WhatsApp
+    </button>
+  </div>
 </div>
 
 <!-- ============ VEHICLE HISTORY MODAL ============ -->
@@ -623,10 +667,23 @@ function logout(){
    ========================================================= */
 let autoRefreshTimer = null;
 
+let staffList = [];
+
 async function initApp(){
   await loadLists();
   await loadJobs();
+  await loadStaff();
   startAutoRefresh();
+}
+
+async function loadStaff(){
+  try{
+    const res = await fetch(`${GAS_URL}?action=getStaff`);
+    const data = await res.json();
+    if(data.success) staffList = data.staff;
+  } catch(err){
+    console.error('[loadStaff] failed', err);
+  }
 }
 
 function startAutoRefresh(){
@@ -1045,6 +1102,185 @@ function renderDashboard(){
         ).join('')
     }
   `;
+}
+
+/* =========================================================
+   DAILY REPORT — visible to all users
+   ========================================================= */
+function toggleReport(){
+  const overlay = document.getElementById('reportOverlay');
+  const isShowing = overlay.classList.toggle('show');
+  if(isShowing){
+    // Default range = today only, per requirement. User can pick a
+    // different range with the date fields and tap Refresh Report.
+    const today = todayDateStr();
+    document.getElementById('reportFromDate').value = today;
+    document.getElementById('reportToDate').value = today;
+    renderReport();
+  }
+}
+
+function dateInRange(dateStr, from, to){
+  if(!dateStr) return false;
+  const d = dateStr.toString().slice(0,10);
+  return (!from || d >= from) && (!to || d <= to);
+}
+
+function renderReport(){
+  const from = document.getElementById('reportFromDate').value;
+  const to = document.getElementById('reportToDate').value;
+  const rangeLabel = (from === to) ? from : `${from} to ${to}`;
+
+  // --- Type Report: count vehicles that REACHED each stage within the
+  // selected range (based on that stage's own timestamp), grouped by
+  // JobcardType. Working = StartTime in range, Finished = FinishTime in
+  // range, Delivered = DeliveredTime in range. A vehicle can appear in
+  // more than one column if multiple stages happened within the range.
+  const typeCounts = {};
+  jobcardTypeList.forEach(t => { typeCounts[t] = {working:0, finished:0, delivered:0}; });
+  // Also catch any type on a job card that isn't in the current Lists
+  // (e.g. was removed from Lists after being used) so nothing silently vanishes.
+  vehicles.forEach(v=>{
+    const type = v.JobcardType || 'Unspecified';
+    if(!typeCounts[type]) typeCounts[type] = {working:0, finished:0, delivered:0};
+    if(dateInRange(v.StartTime, from, to)) typeCounts[type].working++;
+    if(dateInRange(v.FinishTime, from, to)) typeCounts[type].finished++;
+    if(dateInRange(v.DeliveredTime, from, to)) typeCounts[type].delivered++;
+  });
+  const typeRows = Object.entries(typeCounts)
+    .filter(([type,c]) => c.working || c.finished || c.delivered)
+    .map(([type,c]) => `
+      <tr>
+        <td>${type}</td>
+        <td class="num">${c.working||''}</td>
+        <td class="num">${c.finished||''}</td>
+        <td class="num">${c.delivered||''}</td>
+      </tr>`).join('');
+
+  // --- Supervisor / Mechanic reports: same Working/Finished/Delivered
+  // breakdown, but grouped by staff name instead of Jobcard Type.
+  // Mechanic field on the job card is matched directly against staff
+  // FullName — keep names consistent between Users and Lists sheets.
+  function buildStaffRows(role){
+    const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
+    const counts = {};
+    names.forEach(n => { counts[n] = {working:0, finished:0, delivered:0}; });
+    vehicles.forEach(v=>{
+      const name = v.Mechanic;
+      if(!name || !counts[name]) return;
+      if(dateInRange(v.StartTime, from, to)) counts[name].working++;
+      if(dateInRange(v.FinishTime, from, to)) counts[name].finished++;
+      if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+    });
+    return names.map(n => `
+      <tr>
+        <td>${n}</td>
+        <td class="num">${counts[n].working||''}</td>
+        <td class="num">${counts[n].finished||''}</td>
+        <td class="num">${counts[n].delivered||''}</td>
+      </tr>`).join('');
+  }
+
+  const supervisorRows = buildStaffRows('Supervisor');
+  const mechanicRows = buildStaffRows('Mechanic');
+
+  // --- Absent Staff: anyone with zero activity (no Working/Finished/
+  // Delivered rows) anywhere in the selected range, split by role.
+  function findAbsent(role){
+    const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
+    return names.filter(n=>{
+      const hasActivity = vehicles.some(v =>
+        v.Mechanic === n && (
+          dateInRange(v.StartTime, from, to) ||
+          dateInRange(v.FinishTime, from, to) ||
+          dateInRange(v.DeliveredTime, from, to)
+        )
+      );
+      return !hasActivity;
+    });
+  }
+  const absentSupervisors = findAbsent('Supervisor');
+  const absentMechanics = findAbsent('Mechanic');
+  const maxAbsentRows = Math.max(absentSupervisors.length, absentMechanics.length, 1);
+  let absentRows = '';
+  for(let i=0;i<maxAbsentRows;i++){
+    absentRows += `<tr><td>${absentSupervisors[i]||''}</td><td>${absentMechanics[i]||''}</td></tr>`;
+  }
+
+  document.getElementById('reportCard').innerHTML = `
+    <div class="report-card" id="reportCardInner">
+      <div class="report-title">Service Report</div>
+      <div class="report-date">${rangeLabel}</div>
+
+      <div class="report-section-title">Type Report</div>
+      <table class="report-table">
+        <tr><th>Type</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${typeRows || '<tr><td colspan="4" class="report-empty-note">No activity in this range</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Supervisors Report</div>
+      <table class="report-table">
+        <tr><th>Name</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${supervisorRows || '<tr><td colspan="4" class="report-empty-note">No supervisors set up in Users sheet</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Mechanics Report</div>
+      <table class="report-table">
+        <tr><th>Name</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${mechanicRows || '<tr><td colspan="4" class="report-empty-note">No mechanics set up in Users sheet</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Absent Staff (no activity in this range)</div>
+      <table class="report-table">
+        <tr><th>Supervisors</th><th>Mechanics</th></tr>
+        ${absentRows}
+      </table>
+    </div>
+  `;
+}
+
+async function shareReportToWhatsApp(){
+  const shareBtn = document.getElementById('reportShareBtn');
+  const cardEl = document.getElementById('reportCardInner');
+  if(!cardEl){
+    showToast("Generate the report first", true);
+    return;
+  }
+
+  shareBtn.disabled = true;
+  shareBtn.textContent = "Preparing image…";
+
+  try{
+    const canvas = await html2canvas(cardEl, {backgroundColor:'#ffffff', scale:2});
+    canvas.toBlob(async (blob)=>{
+      const file = new File([blob], 'service-report.png', {type:'image/png'});
+
+      // Web Share API with files works on most mobile browsers (Chrome/Android,
+      // Safari/iOS 15+) and opens the native share sheet with WhatsApp as an option.
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file], title:'Service Report'});
+        } catch(shareErr){
+          // User cancelled the share sheet — not an error, just no-op
+        }
+      } else {
+        // Fallback for desktop browsers without native file sharing:
+        // download the image so it can be attached to WhatsApp Web manually.
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'service-report.png';
+        link.click();
+        showToast("Image downloaded — attach it in WhatsApp");
+      }
+      shareBtn.disabled = false;
+      shareBtn.textContent = "📱 Share Report on WhatsApp";
+    }, 'image/png');
+  } catch(err){
+    console.error('[shareReport] failed', err);
+    showToast("Could not generate report image", true);
+    shareBtn.disabled = false;
+    shareBtn.textContent = "📱 Share Report on WhatsApp";
+  }
 }
 
 /* =========================================================
