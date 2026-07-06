@@ -481,6 +481,10 @@
       <select id="editMechanic"></select>
     </div>
     <div class="modal-field">
+      <label>Supervisor</label>
+      <select id="editSupervisor"></select>
+    </div>
+    <div class="modal-field">
       <label>Status (Admin can jump to any stage)</label>
       <select id="editStatus">
         <option value="intake">Intake</option>
@@ -668,6 +672,7 @@ function logout(){
 let autoRefreshTimer = null;
 
 let staffList = [];
+let supervisorNames = [];
 
 async function initApp(){
   await loadLists();
@@ -680,7 +685,11 @@ async function loadStaff(){
   try{
     const res = await fetch(`${GAS_URL}?action=getStaff`);
     const data = await res.json();
-    if(data.success) staffList = data.staff;
+    if(data.success){
+      staffList = data.staff;
+      supervisorNames = staffList.filter(s => (s.role||"").toLowerCase() === "supervisor").map(s=>s.fullName);
+      render(); // re-render so Supervisor dropdowns populate once staff data arrives
+    }
   } catch(err){
     console.error('[loadStaff] failed', err);
   }
@@ -799,12 +808,27 @@ function render(){
 
   listEl.innerHTML = filtered.map(v=>{
     const nextLabel = NEXT_LABEL[v.Status];
-    const actionBtn = nextLabel
-      ? `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`
-      : `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
+    // Deliver requires a Supervisor to be picked first (their approval) —
+    // once a vehicle reaches "finished", the Deliver button stays locked
+    // until Supervisor is set. All other transitions are unaffected.
+    const supervisorRequired = v.Status === 'finished';
+    const supervisorMissing = supervisorRequired && !v.Supervisor;
+
+    let actionBtn;
+    if(!nextLabel){
+      actionBtn = `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
+    } else if(supervisorMissing){
+      actionBtn = `<button class="btn-status" disabled style="opacity:0.5;" title="Select a Supervisor first">Deliver (needs approval)</button>`;
+    } else {
+      actionBtn = `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`;
+    }
 
     const mechanicOptions = ['<option value="">Not assigned</option>']
       .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+      .join('');
+
+    const supervisorOptions = ['<option value="">Select Supervisor</option>']
+      .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
       .join('');
 
     return `
@@ -827,6 +851,12 @@ function render(){
           ${mechanicOptions}
         </select>
       </div>
+      ${supervisorRequired ? `
+      <div class="mechanic-row">
+        <select class="mechanic-select" onchange="assignSupervisor('${v.JobID}', this.value)">
+          ${supervisorOptions}
+        </select>
+      </div>` : ''}
       <div class="card-actions">
         ${actionBtn}
       </div>
@@ -847,6 +877,15 @@ function advanceStatus(jobId){
   const idx = STATUS_FLOW.indexOf(v.Status);
   if(idx >= STATUS_FLOW.length-1) return;
   const newStatus = STATUS_FLOW[idx+1];
+
+  // Supervisor approval gate — Deliver is blocked until a Supervisor
+  // has been picked on this card. The button is already disabled for
+  // this case, but this check stays here too since the real enforcement
+  // lives on the backend (updateStatus rejects it either way).
+  if(newStatus === 'delivered' && !v.Supervisor){
+    showToast("Select a Supervisor to approve before delivering", true);
+    return;
+  }
 
   showConfirm(
     `Move ${v.VehicleNo} to "${STATUS_LABEL[newStatus]}"?`,
@@ -894,6 +933,23 @@ async function assignMechanic(jobId, mechanic){
     }
   } catch(err){
     showToast("Could not save mechanic", true);
+  }
+}
+
+async function assignSupervisor(jobId, supervisor){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  v.Supervisor = supervisor;
+  render(); // re-render immediately so the Deliver button unlocks/locks right away
+  try{
+    const res = await fetch(`${GAS_URL}?action=assignSupervisor&jobId=${encodeURIComponent(jobId)}&supervisor=${encodeURIComponent(supervisor)}`);
+    const data = await res.json();
+    if(data.success){
+      showToast(supervisor ? `Approved by ${supervisor}` : "Supervisor cleared");
+    } else {
+      showToast(data.message || "Could not save supervisor", true);
+    }
+  } catch(err){
+    showToast("Could not save supervisor", true);
   }
 }
 
@@ -1165,12 +1221,22 @@ function renderReport(){
     const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
     const counts = {};
     names.forEach(n => { counts[n] = {working:0, finished:0, delivered:0}; });
+    // Supervisors are credited via the Supervisor field (their approval,
+    // which always corresponds to the Delivered stage). Mechanics are
+    // credited via the Mechanic field across Working/Finished/Delivered.
+    const isSupervisorReport = role.toLowerCase() === 'supervisor';
     vehicles.forEach(v=>{
-      const name = v.Mechanic;
-      if(!name || !counts[name]) return;
-      if(dateInRange(v.StartTime, from, to)) counts[name].working++;
-      if(dateInRange(v.FinishTime, from, to)) counts[name].finished++;
-      if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+      if(isSupervisorReport){
+        const name = v.Supervisor;
+        if(!name || !counts[name]) return;
+        if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+      } else {
+        const name = v.Mechanic;
+        if(!name || !counts[name]) return;
+        if(dateInRange(v.StartTime, from, to)) counts[name].working++;
+        if(dateInRange(v.FinishTime, from, to)) counts[name].finished++;
+        if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+      }
     });
     return names.map(n => `
       <tr>
@@ -1188,14 +1254,18 @@ function renderReport(){
   // Delivered rows) anywhere in the selected range, split by role.
   function findAbsent(role){
     const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
+    const isSupervisorReport = role.toLowerCase() === 'supervisor';
     return names.filter(n=>{
-      const hasActivity = vehicles.some(v =>
-        v.Mechanic === n && (
+      const hasActivity = vehicles.some(v => {
+        if(isSupervisorReport){
+          return v.Supervisor === n && dateInRange(v.DeliveredTime, from, to);
+        }
+        return v.Mechanic === n && (
           dateInRange(v.StartTime, from, to) ||
           dateInRange(v.FinishTime, from, to) ||
           dateInRange(v.DeliveredTime, from, to)
-        )
-      );
+        );
+      });
       return !hasActivity;
     });
   }
@@ -1312,6 +1382,7 @@ function openHistoryModal(jobId){
   const metaHtml = `
     <div class="history-meta-row"><span>Jobcard Type</span><b>${v.JobcardType||'—'}</b></div>
     <div class="history-meta-row"><span>Mechanic</span><b>${v.Mechanic||'Not assigned'}</b></div>
+    <div class="history-meta-row"><span>Supervisor</span><b>${v.Supervisor||'Not approved yet'}</b></div>
     <div class="history-meta-row"><span>Intake Date</span><b>${v.IntakeDate||'—'}</b></div>
     ${v.EstDeliveryDate ? `<div class="history-meta-row"><span>Est. Delivery</span><b>${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</b></div>` : ''}
     <div class="history-meta-row"><span>Created By</span><b>${v.CreatedBy||'—'}</b></div>
@@ -1355,6 +1426,10 @@ function openEditModal(){
   mechSel.innerHTML = '<option value="">Not assigned</option>' +
     mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`).join('');
 
+  const supSel = document.getElementById('editSupervisor');
+  supSel.innerHTML = '<option value="">Not approved</option>' +
+    supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`).join('');
+
   closeHistoryModal();
   document.getElementById('editModalOverlay').classList.add('show');
 }
@@ -1373,17 +1448,23 @@ async function submitEditJob(){
   const estDeliveryTime = document.getElementById('editEstDeliveryTime').value;
   const jobcardType = document.getElementById('editJobcardType').value;
   const mechanic = document.getElementById('editMechanic').value;
+  const supervisor = document.getElementById('editSupervisor').value;
   const status = document.getElementById('editStatus').value;
 
   if(!vehicleNo){
     showToast("Vehicle number required", true);
     return;
   }
+  // Admin bypasses the normal approval gate via direct edit, but we still
+  // warn clearly so it's an intentional override, not an accidental skip.
+  if(status === 'delivered' && !supervisor){
+    showToast("Warning: delivering without a Supervisor selected", true);
+  }
 
   const doSave = async () => {
     const params = new URLSearchParams({
       action: 'editJob', jobId: currentHistoryJobId,
-      vehicleNo, intakeDate, estDeliveryDate, estDeliveryTime, jobcardType, mechanic, status,
+      vehicleNo, intakeDate, estDeliveryDate, estDeliveryTime, jobcardType, mechanic, supervisor, status,
       username: currentUser ? currentUser.username : ''
     });
     try{
@@ -1393,7 +1474,7 @@ async function submitEditJob(){
         // Update local state immediately (optimistic)
         v.VehicleNo = vehicleNo; v.IntakeDate = intakeDate;
         v.EstDeliveryDate = estDeliveryDate; v.EstDeliveryTime = estDeliveryTime;
-        v.JobcardType = jobcardType; v.Mechanic = mechanic; v.Status = status;
+        v.JobcardType = jobcardType; v.Mechanic = mechanic; v.Supervisor = supervisor; v.Status = status;
         showToast("Jobcard updated");
         closeEditModal();
         render();
