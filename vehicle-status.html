@@ -93,6 +93,7 @@
   @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
   .dash-btn{background:none; border:none; color:var(--amber); font-size:17px; cursor:pointer; padding:4px;}
   .report-btn{background:none; border:none; color:var(--teal); font-size:17px; cursor:pointer; padding:4px;}
+  .import-btn{background:none; border:none; color:#6a4fb8; font-size:17px; cursor:pointer; padding:4px;}
 
   /* ---------------- DATE RANGE BAR ---------------- */
   .date-range-bar{display:flex; align-items:center; gap:8px; margin-top:10px;}
@@ -206,6 +207,8 @@
   .chip[data-status="finished"].active{background:var(--teal); color:#04211c;}
   .chip[data-status="delivered"]{color:var(--text-faint);}
   .chip[data-status="delivered"].active{background:var(--text-faint); color:var(--charcoal);}
+  .chip[data-status="my_assigned"]{color:#6a4fb8;}
+  .chip[data-status="my_assigned"].active{background:#6a4fb8; color:#fff;}
   .chip-count{font-weight:900;}
 
   /* ---------------- FAB (Add Vehicle) ---------------- */
@@ -263,6 +266,21 @@
   .card-meta span{display:flex; align-items:center; gap:4px;}
 
   .mechanic-row{display:flex; align-items:center; gap:8px;}
+
+  /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
+  .simple-card{gap:10px;}
+  .tick-list{display:flex; flex-direction:column; gap:6px;}
+  .tick-row{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-radius:8px; font-size:13.5px; font-weight:600;
+    background:rgba(0,0,0,0.15);
+  }
+  .tick-row.done{background:rgba(31,166,147,0.15); color:var(--card-finished-text, #0a4438);}
+  .tick-row.pending{background:rgba(255,107,26,0.12); cursor:pointer;}
+  .tick-row.locked{opacity:0.4; cursor:not-allowed;}
+  .tick-icon{font-size:18px; flex:0 0 20px;}
+  .tick-label{flex:1;}
+  .tick-sub{font-size:11.5px; opacity:0.75; font-weight:700;}
   .mechanic-select{
     flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
     padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
@@ -366,6 +384,7 @@
       <div class="user-chip">
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
+        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Import from DMS" style="display:none;">&#128229;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -391,9 +410,10 @@
     <div class="chip active" data-status="all" id="allChip">All <span class="chip-count" id="count-all">0</span></div>
     <div class="chip" data-status="intake_today"><span class="dot"></span>Today Intake <span class="chip-count" id="count-intake_today">0</span></div>
     <div class="chip" data-status="intake_previous"><span class="dot"></span>Previous Intake <span class="chip-count" id="count-intake_previous">0</span></div>
-    <div class="chip" data-status="start"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
-    <div class="chip" data-status="finished"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
-    <div class="chip" data-status="delivered"><span class="dot"></span>Delivered Today <span class="chip-count" id="count-delivered">0</span></div>
+    <div class="chip" data-status="start" id="startChip"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
+    <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
+    <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered Today <span class="chip-count" id="count-delivered">0</span></div>
+    <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
   </div>
 
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
@@ -429,6 +449,25 @@
     <button class="btn-save" id="reportShareBtn" style="width:100%; margin-top:16px; background:var(--teal); color:#04211c;" onclick="shareReportToWhatsApp()">
       &#128241; Share Report on WhatsApp
     </button>
+  </div>
+</div>
+
+<!-- ============ DMS IMPORT OVERLAY (Admin only) ============ -->
+<div class="dashboard-overlay" id="importOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Import from DMS Export</div>
+    <button class="dash-close-btn" onclick="toggleImport()">&times;</button>
+  </div>
+  <div class="dashboard-body">
+    <div style="font-size:12px; color:var(--text-dim); margin-bottom:10px; line-height:1.5;">
+      Copy rows from your DMS export or Excel sheet and paste below.<br>
+      Expected column order: <b>Jobcard No, Vehicle No, Service Type, Intake Date</b> (tab-separated, one vehicle per line — this is exactly how a normal Excel copy-paste works).<br>
+      Existing Jobcard Numbers are skipped automatically, never overwritten.
+    </div>
+    <textarea id="importTextarea" rows="10" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text); font-family:monospace;" placeholder="JC1001&#9;TN47AB1234&#9;Paid service&#9;2026-07-08
+JC1002&#9;TN47CD5678&#9;General repair&#9;2026-07-08"></textarea>
+    <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Import Rows</button>
+    <div id="importResultBody" style="margin-top:14px;"></div>
   </div>
 </div>
 
@@ -621,23 +660,39 @@ function enterApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
 
-  // Restrict "All" view and Dashboard to Admin role only.
-  // Non-admin staff should only see and work one status queue at a time —
-  // showing the full mixed list is what caused accidental status changes
-  // on the wrong vehicle before.
+  // Restrict "All", Dashboard, and the old Working/Finished/Delivered
+  // tabs to Admin only. Non-admin (Supervisor/Mechanic) users now get
+  // a much simpler view: Previous Intake, Today Intake, and My Assigned
+  // (vehicles tagged to them). This replaces the earlier design where
+  // everyone shared the same tab set.
   const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
   const allChip = document.getElementById('allChip');
   const dashBtn = document.getElementById('dashBtn');
+  const importBtn = document.getElementById('importBtn');
+  const startChip = document.getElementById('startChip');
+  const finishedChip = document.getElementById('finishedChip');
+  const deliveredChip = document.getElementById('deliveredChip');
+  const myAssignedChip = document.getElementById('myAssignedChip');
+
   if(!isAdmin){
     allChip.style.display = 'none';
     dashBtn.style.display = 'none';
-    // Default non-admin staff to the Intake queue instead of All
+    importBtn.style.display = 'none';
+    startChip.style.display = 'none';
+    finishedChip.style.display = 'none';
+    deliveredChip.style.display = 'none';
+    myAssignedChip.style.display = '';
     document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
     document.querySelector('.chip[data-status="intake_today"]').classList.add('active');
     activeFilter = 'intake_today';
   } else {
     allChip.style.display = '';
     dashBtn.style.display = '';
+    importBtn.style.display = '';
+    startChip.style.display = '';
+    finishedChip.style.display = '';
+    deliveredChip.style.display = '';
+    myAssignedChip.style.display = 'none';
   }
 
   initApp();
@@ -772,13 +827,19 @@ function matchesFilter(v, filterKey){
   if(filterKey === "intake_today") return v.Status==="intake" && intakeDateStr === today;
   if(filterKey === "intake_previous") return v.Status==="intake" && intakeDateStr !== "" && intakeDateStr < today;
   if(filterKey === "delivered") return v.Status==="delivered" && deliveredDateStr === today;
+  if(filterKey === "my_assigned"){
+    // Vehicles permanently tagged to the logged-in Supervisor (set once,
+    // the first time a Mechanic was assigned) and not yet delivered.
+    const myName = currentUser ? currentUser.fullName : null;
+    return v.Supervisor === myName && v.Status !== "delivered";
+  }
   // start / finished — unchanged, straightforward status match
   return v.Status === filterKey;
 }
 
 function updateCounts(){
   document.getElementById('count-all').textContent = vehicles.length;
-  ["intake_today","intake_previous","start","finished","delivered"].forEach(key=>{
+  ["intake_today","intake_previous","start","finished","delivered","my_assigned"].forEach(key=>{
     document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
   });
 }
@@ -806,62 +867,125 @@ function render(){
     return;
   }
 
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+
   listEl.innerHTML = filtered.map(v=>{
-    const nextLabel = NEXT_LABEL[v.Status];
-    // Deliver requires a Supervisor to be picked first (their approval) —
-    // once a vehicle reaches "finished", the Deliver button stays locked
-    // until Supervisor is set. All other transitions are unaffected.
-    const supervisorRequired = v.Status === 'finished';
-    const supervisorMissing = supervisorRequired && !v.Supervisor;
-
-    let actionBtn;
-    if(!nextLabel){
-      actionBtn = `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
-    } else if(supervisorMissing){
-      actionBtn = `<button class="btn-status" disabled style="opacity:0.5;" title="Select a Supervisor first">Deliver (needs approval)</button>`;
-    } else {
-      actionBtn = `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`;
-    }
-
-    const mechanicOptions = ['<option value="">Not assigned</option>']
-      .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
-      .join('');
-
-    const supervisorOptions = ['<option value="">Select Supervisor</option>']
-      .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
-      .join('');
-
-    return `
-    <div class="card" data-status="${v.Status}">
-      <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
-        <div>
-          <div class="veh-no">${v.VehicleNo}</div>
-          ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
-        </div>
-        <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
-      </div>
-      <div class="card-meta">
-        <span>#${v.JobID}</span>
-        <span>&#128197; ${v.IntakeDate||''}</span>
-        <span>&#128337; ${v.IntakeTime||''}</span>
-      </div>
-      ${v.EstDeliveryDate ? `<div class="card-meta"><span>&#9200; Est: ${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</span></div>` : ''}
-      <div class="mechanic-row">
-        <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
-          ${mechanicOptions}
-        </select>
-      </div>
-      ${supervisorRequired ? `
-      <div class="mechanic-row">
-        <select class="mechanic-select" onchange="assignSupervisor('${v.JobID}', this.value)">
-          ${supervisorOptions}
-        </select>
-      </div>` : ''}
-      <div class="card-actions">
-        ${actionBtn}
-      </div>
-    </div>`;
+    return isAdmin ? renderAdminCard(v) : renderSimpleCard(v);
   }).join('');
+}
+
+/* ---------------- ADMIN CARD (full detail, unchanged from before) ---------------- */
+function renderAdminCard(v){
+  const nextLabel = NEXT_LABEL[v.Status];
+  // Deliver requires a Supervisor to be picked first (their approval) —
+  // once a vehicle reaches "finished", the Deliver button stays locked
+  // until Supervisor is set. All other transitions are unaffected.
+  const supervisorRequired = v.Status === 'finished';
+  const supervisorMissing = supervisorRequired && !v.Supervisor;
+
+  let actionBtn;
+  if(!nextLabel){
+    actionBtn = `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
+  } else if(supervisorMissing){
+    actionBtn = `<button class="btn-status" disabled style="opacity:0.5;" title="Select a Supervisor first">Deliver (needs approval)</button>`;
+  } else {
+    actionBtn = `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`;
+  }
+
+  const mechanicOptions = ['<option value="">Not assigned</option>']
+    .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+    .join('');
+
+  const supervisorOptions = ['<option value="">Select Supervisor</option>']
+    .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
+    .join('');
+
+  return `
+  <div class="card" data-status="${v.Status}">
+    <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
+      <div>
+        <div class="veh-no">${v.VehicleNo}</div>
+        ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
+      </div>
+      <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
+    </div>
+    <div class="card-meta">
+      <span>#${v.JobID}</span>
+      <span>&#128197; ${v.IntakeDate||''}</span>
+      <span>&#128337; ${v.IntakeTime||''}</span>
+    </div>
+    ${v.EstDeliveryDate ? `<div class="card-meta"><span>&#9200; Est: ${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</span></div>` : ''}
+    <div class="mechanic-row">
+      <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
+        ${mechanicOptions}
+      </select>
+    </div>
+    ${supervisorRequired ? `
+    <div class="mechanic-row">
+      <select class="mechanic-select" onchange="assignSupervisor('${v.JobID}', this.value)">
+        ${supervisorOptions}
+      </select>
+    </div>` : ''}
+    <div class="card-actions">
+      ${actionBtn}
+    </div>
+  </div>`;
+}
+
+/* ---------------- SIMPLE CARD (Supervisor/Mechanic view) ---------------- *
+ * Per requirement: only Jobcard#, Vehicle#, Service Type, and 3 ticks.
+ * Tick 1 = pick Mechanic (this call also tags Supervisor + advances
+ *          status to "start" — see assignMechanic in backend).
+ * Tick 2 = manual tick by Supervisor, advances to "finished".
+ * Tick 3 = manual tick by Supervisor, advances to "delivered".
+ * Ticks are sequential — Tick 2 only enabled once Tick 1 is done, etc.
+ */
+function renderSimpleCard(v){
+  const tick1Done = v.Status === 'start' || v.Status === 'finished' || v.Status === 'delivered';
+  const tick2Done = v.Status === 'finished' || v.Status === 'delivered';
+  const tick3Done = v.Status === 'delivered';
+
+  const mechanicOptions = ['<option value="">Select Mechanic</option>']
+    .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+    .join('');
+
+  // Tick 1 is the mechanic dropdown itself — selecting a name IS the tick.
+  const tick1 = tick1Done
+    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Work Start</span><span class="tick-sub">${v.Mechanic||''}</span></div>`
+    : `<div class="tick-row pending">
+         <span class="tick-icon">&#9744;</span>
+         <select class="mechanic-select" style="flex:1;" onchange="tickAssignMechanic('${v.JobID}', this.value)">
+           ${mechanicOptions}
+         </select>
+       </div>`;
+
+  const tick2 = tick2Done
+    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Work Finished</span></div>`
+    : `<div class="tick-row ${tick1Done ? 'pending' : 'locked'}" ${tick1Done ? `onclick="tickAdvance('${v.JobID}','finished')"` : ''}>
+         <span class="tick-icon">&#9744;</span><span class="tick-label">Work Finished</span>
+       </div>`;
+
+  const tick3 = tick3Done
+    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Delivered</span></div>`
+    : `<div class="tick-row ${tick2Done ? 'pending' : 'locked'}" ${tick2Done ? `onclick="tickAdvance('${v.JobID}','delivered')"` : ''}>
+         <span class="tick-icon">&#9744;</span><span class="tick-label">Delivered</span>
+       </div>`;
+
+  return `
+  <div class="card simple-card" data-status="${v.Status}">
+    <div class="card-top">
+      <div>
+        <div class="veh-no">${v.VehicleNo}</div>
+        <div class="cust-name">${v.JobcardType||''}</div>
+      </div>
+      <div class="status-tag" data-status="${v.Status}">#${v.JobID}</div>
+    </div>
+    <div class="tick-list">
+      ${tick1}
+      ${tick2}
+      ${tick3}
+    </div>
+  </div>`;
 }
 
 /* =========================================================
@@ -930,6 +1054,7 @@ async function assignMechanic(jobId, mechanic){
     const data = await res.json();
     if(data.success){
       showToast(mechanic ? `Assigned to ${mechanic}` : "Mechanic cleared");
+      loadJobs(true); // pick up any status/Supervisor change the backend made
     }
   } catch(err){
     showToast("Could not save mechanic", true);
@@ -951,6 +1076,74 @@ async function assignSupervisor(jobId, supervisor){
   } catch(err){
     showToast("Could not save supervisor", true);
   }
+}
+
+/* =========================================================
+   TICK ACTIONS — Supervisor/Mechanic simplified card
+   ========================================================= */
+
+// Tick 1: picking a Mechanic here also tags Supervisor (first time only)
+// and advances Status to "start" — all handled server-side in one call.
+async function tickAssignMechanic(jobId, mechanic){
+  if(!mechanic) return; // placeholder "Select Mechanic" option chosen — no-op
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  const supervisorTag = currentUser ? currentUser.fullName : '';
+
+  showConfirm(`Start work on ${v.VehicleNo} with ${mechanic}?`, async () => {
+    // optimistic update
+    v.Mechanic = mechanic;
+    v.Status = 'start';
+    if(!v.Supervisor) v.Supervisor = supervisorTag;
+    render();
+
+    try{
+      const url = `${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}&supervisorTag=${encodeURIComponent(supervisorTag)}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.success){
+        showToast(`Work started — ${mechanic}`);
+      } else {
+        showToast(data.message || "Failed to start work", true);
+        loadJobs(true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+      loadJobs(true);
+    }
+  });
+}
+
+// Tick 2 / Tick 3: straightforward status advance, same endpoint as
+// advanceStatus but triggered by tapping the tick row instead of a button.
+async function tickAdvance(jobId, newStatus){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  const label = newStatus === 'finished' ? 'Work Finished' : 'Delivered';
+  showConfirm(`Mark ${v.VehicleNo} as ${label}?`, async () => {
+    const prevStatus = v.Status;
+    v.Status = newStatus;
+    render();
+
+    try{
+      const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.success){
+        showToast(`${v.VehicleNo} → ${label}`);
+      } else {
+        showToast(data.message || "Update failed", true);
+        v.Status = prevStatus;
+        render();
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+      v.Status = prevStatus;
+      render();
+    }
+  });
 }
 
 /* =========================================================
@@ -1350,6 +1543,65 @@ async function shareReportToWhatsApp(){
     showToast("Could not generate report image", true);
     shareBtn.disabled = false;
     shareBtn.textContent = "📱 Share Report on WhatsApp";
+  }
+}
+
+/* =========================================================
+   DMS IMPORT (Admin only)
+   ========================================================= */
+function toggleImport(){
+  const overlay = document.getElementById('importOverlay');
+  overlay.classList.toggle('show');
+  document.getElementById('importResultBody').innerHTML = '';
+}
+
+async function submitImport(){
+  const raw = document.getElementById('importTextarea').value.trim();
+  if(!raw){
+    showToast("Paste some rows first", true);
+    return;
+  }
+
+  // Parse tab-separated rows (standard Excel copy-paste format).
+  // Each line = one vehicle: JobID, VehicleNo, JobcardType, IntakeDate
+  const rows = raw.split('\n').map(line => line.split('\t').map(cell => cell.trim())).filter(r => r.length && r[0]);
+
+  const btn = document.getElementById('importSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = "Importing…";
+
+  try{
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'importJobs',
+        rows: rows,
+        username: currentUser ? currentUser.username : ''
+      })
+    });
+    const data = await res.json();
+
+    if(data.success){
+      showToast(`Imported ${data.imported} vehicle${data.imported!==1?'s':''}`);
+      document.getElementById('importTextarea').value = '';
+      const resultBody = document.getElementById('importResultBody');
+      if(data.skipped && data.skipped.length){
+        resultBody.innerHTML = `
+          <div class="report-section-title" style="color:var(--orange); border-color:var(--orange);">Skipped (${data.skipped.length})</div>
+          ${data.skipped.map(s=>`<div style="font-size:11.5px; color:var(--text-dim); padding:4px 0;">Row ${s.row}: ${s.reason}</div>`).join('')}
+        `;
+      } else {
+        resultBody.innerHTML = `<div style="font-size:12px; color:var(--teal);">All rows imported successfully, none skipped.</div>`;
+      }
+      loadJobs(true);
+    } else {
+      showToast(data.message || "Import failed", true);
+    }
+  } catch(err){
+    showToast("Connection error: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Import Rows";
   }
 }
 
