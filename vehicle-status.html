@@ -141,6 +141,20 @@
   }
   .mech-row .mech-count{font-weight:800; color:var(--orange);}
 
+  .supervisor-group{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .supervisor-group-name{
+    font-size:13.5px; font-weight:800; color:#6a4fb8; display:flex;
+    justify-content:space-between; align-items:center; margin-bottom:8px;
+    padding-bottom:8px; border-bottom:1px solid var(--steel-line);
+  }
+  .supervisor-group-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; padding:5px 0; color:var(--text-dim);
+  }
+
   /* ---------------- DAILY REPORT CARD (styled for WhatsApp image export) ---------------- */
   .report-card{
     background:#ffffff; color:#1c2024; border-radius:10px; padding:16px;
@@ -269,6 +283,50 @@
 
   /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
   .simple-card{gap:10px;}
+  /* Simple card colors go by Service Type (Jobcard Type), not stage —
+     Free Service = Blue, General Repair = Pink, everything else = Yellow.
+     These classes are applied by renderSimpleCard() in the script below. */
+  .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
+  .simple-card.type-blue .veh-no{color:#0b4a75;}
+  .simple-card.type-blue .jobid-badge{background:#4fa3e0; color:#fff;}
+  .simple-card.type-blue .simple-card-type{color:#1a6aa8;}
+
+  .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
+  .simple-card.type-pink .veh-no{color:#7a0d47;}
+  .simple-card.type-pink .jobid-badge{background:#e05a9f; color:#fff;}
+  .simple-card.type-pink .simple-card-type{color:#a3225f;}
+
+  .simple-card.type-yellow{background:#fff8e1; border-color:#e0a325;}
+  .simple-card.type-yellow .veh-no{color:#5c4300;}
+  .simple-card.type-yellow .jobid-badge{background:#e0a325; color:#2a2108;}
+  .simple-card.type-yellow .simple-card-type{color:#8a6d00;}
+
+  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .jobid-badge{font-size:11px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;}
+  .simple-card-type{font-size:12.5px; font-weight:600; margin-top:2px; margin-bottom:10px;}
+
+  .simple-tick-grid{display:flex; flex-direction:column; gap:6px;}
+  .simple-tick-cell{
+    display:flex; align-items:center; gap:10px; padding:9px 12px;
+    border-radius:8px; font-size:13px; font-weight:600;
+    background:rgba(255,255,255,0.55);
+  }
+  .simple-tick-cell.mechanic-cell{background:rgba(255,255,255,0.75);}
+  .simple-tick-cell.done-cell{background:rgba(31,166,147,0.2); color:#0a4438;}
+  .simple-tick-cell.clickable-cell{background:rgba(255,255,255,0.85); cursor:pointer;}
+  .simple-tick-cell.locked-cell{opacity:0.45; cursor:not-allowed;}
+
+  .mini-tick{
+    width:18px; height:18px; flex:0 0 18px; border-radius:4px;
+    border:2px solid rgba(0,0,0,0.3); display:flex; align-items:center;
+    justify-content:center; font-size:13px; font-weight:900; color:#fff;
+  }
+  .mini-tick.done{background:var(--teal); border-color:var(--teal);}
+  .tick-mini-label{flex:1;}
+  .mini-select{
+    flex:1; background:#1c2024; color:#fff; border:1.5px solid rgba(0,0,0,0.3);
+    border-radius:6px; padding:6px 8px; font-size:12.5px; outline:none;
+  }
   .tick-list{display:flex; flex-direction:column; gap:6px;}
   .tick-row{
     display:flex; align-items:center; gap:10px; padding:10px 12px;
@@ -830,8 +888,12 @@ function matchesFilter(v, filterKey){
   if(filterKey === "my_assigned"){
     // Vehicles permanently tagged to the logged-in Supervisor (set once,
     // the first time a Mechanic was assigned) and not yet delivered.
-    const myName = currentUser ? currentUser.fullName : null;
-    return v.Supervisor === myName && v.Status !== "delivered";
+    // Comparison is trimmed + case-insensitive to avoid silent mismatches
+    // from stray whitespace or casing differences between Users sheet
+    // FullName and what got saved on the job card.
+    const myName = currentUser ? (currentUser.fullName||"").trim().toLowerCase() : null;
+    const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
+    return myName && cardSupervisor === myName && v.Status !== "delivered";
   }
   // start / finished — unchanged, straightforward status match
   return v.Status === filterKey;
@@ -949,41 +1011,47 @@ function renderSimpleCard(v){
     .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
     .join('');
 
-  // Tick 1 is the mechanic dropdown itself — selecting a name IS the tick.
-  const tick1 = tick1Done
-    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Work Start</span><span class="tick-sub">${v.Mechanic||''}</span></div>`
-    : `<div class="tick-row pending">
-         <span class="tick-icon">&#9744;</span>
-         <select class="mechanic-select" style="flex:1;" onchange="tickAssignMechanic('${v.JobID}', this.value)">
-           ${mechanicOptions}
-         </select>
-       </div>`;
+  // Color-code by Jobcard Type — matches the paper-card system already
+  // in use at the workshop, so the app visually matches physical habit.
+  const typeKey = (v.JobcardType||"").trim().toLowerCase();
+  let colorClass = 'type-yellow'; // default for any type not explicitly mapped
+  if(typeKey === 'free service') colorClass = 'type-blue';
+  else if(typeKey === 'general repair') colorClass = 'type-pink';
 
-  const tick2 = tick2Done
-    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Work Finished</span></div>`
-    : `<div class="tick-row ${tick1Done ? 'pending' : 'locked'}" ${tick1Done ? `onclick="tickAdvance('${v.JobID}','finished')"` : ''}>
-         <span class="tick-icon">&#9744;</span><span class="tick-label">Work Finished</span>
-       </div>`;
+  // Tick 1 shows as a checkbox + mechanic name once done, or the dropdown
+  // itself while pending (selecting a name IS the tick).
+  const tick1Box = tick1Done
+    ? `<span class="mini-tick done">&#10003;</span>`
+    : `<span class="mini-tick"></span>`;
+  const tick1Content = tick1Done
+    ? `<span class="tick-mini-label">${v.Mechanic||''}</span>`
+    : `<select class="mini-select" onchange="tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
 
-  const tick3 = tick3Done
-    ? `<div class="tick-row done"><span class="tick-icon">&#9989;</span><span class="tick-label">Delivered</span></div>`
-    : `<div class="tick-row ${tick2Done ? 'pending' : 'locked'}" ${tick2Done ? `onclick="tickAdvance('${v.JobID}','delivered')"` : ''}>
-         <span class="tick-icon">&#9744;</span><span class="tick-label">Delivered</span>
-       </div>`;
+  const tick2Clickable = tick1Done && !tick2Done;
+  const tick3Clickable = tick2Done && !tick3Done;
+  const tick2CellClass = tick2Done ? 'done-cell' : (tick2Clickable ? 'clickable-cell' : 'locked-cell');
+  const tick3CellClass = tick3Done ? 'done-cell' : (tick3Clickable ? 'clickable-cell' : 'locked-cell');
 
   return `
-  <div class="card simple-card" data-status="${v.Status}">
-    <div class="card-top">
-      <div>
-        <div class="veh-no">${v.VehicleNo}</div>
-        <div class="cust-name">${v.JobcardType||''}</div>
-      </div>
-      <div class="status-tag" data-status="${v.Status}">#${v.JobID}</div>
+  <div class="card simple-card ${colorClass}" data-status="${v.Status}">
+    <div class="simple-card-top">
+      <div class="veh-no">${v.VehicleNo}</div>
+      <div class="jobid-badge">#${v.JobID}</div>
     </div>
-    <div class="tick-list">
-      ${tick1}
-      ${tick2}
-      ${tick3}
+    <div class="simple-card-type">${v.JobcardType||'—'}</div>
+    <div class="simple-tick-grid">
+      <div class="simple-tick-cell mechanic-cell">
+        ${tick1Box}
+        ${tick1Content}
+      </div>
+      <div class="simple-tick-cell ${tick2CellClass}" ${tick2Clickable?`onclick="tickAdvance('${v.JobID}','finished')"`:''}>
+        <span class="mini-tick ${tick2Done?'done':''}">${tick2Done?'&#10003;':''}</span>
+        <span class="tick-mini-label">Work Finished</span>
+      </div>
+      <div class="simple-tick-cell ${tick3CellClass}" ${tick3Clickable?`onclick="tickAdvance('${v.JobID}','delivered')"`:''}>
+        <span class="mini-tick ${tick3Done?'done':''}">${tick3Done?'&#10003;':''}</span>
+        <span class="tick-mini-label">Delivered</span>
+      </div>
     </div>
   </div>`;
 }
@@ -1089,28 +1157,41 @@ async function tickAssignMechanic(jobId, mechanic){
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   if(!v) return;
 
-  const supervisorTag = currentUser ? currentUser.fullName : '';
+  if(!currentUser || !currentUser.fullName){
+    showToast("Session error — please log out and log in again", true);
+    console.error('[tickAssignMechanic] currentUser or fullName missing', currentUser);
+    return;
+  }
+  const supervisorTag = currentUser.fullName;
 
   showConfirm(`Start work on ${v.VehicleNo} with ${mechanic}?`, async () => {
-    // optimistic update
+    // optimistic update (visual only — server response below is source of truth)
     v.Mechanic = mechanic;
     v.Status = 'start';
     if(!v.Supervisor) v.Supervisor = supervisorTag;
     render();
 
     try{
-      const url = `${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}&supervisorTag=${encodeURIComponent(supervisorTag)}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
+      const url = `${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}&supervisorTag=${encodeURIComponent(supervisorTag)}&username=${encodeURIComponent(currentUser.username)}`;
       const res = await fetch(url);
       const data = await res.json();
+      console.log('[tickAssignMechanic] server response:', data);
+
       if(data.success){
         showToast(`Work started — ${mechanic}`);
+        // Always re-sync this vehicle from the server's actual saved
+        // state rather than trusting the optimistic guess above — this
+        // is what previously let a silent mismatch (e.g. Supervisor not
+        // actually saved) go unnoticed until the My Assigned tab.
+        await loadJobs(true);
       } else {
         showToast(data.message || "Failed to start work", true);
-        loadJobs(true);
+        await loadJobs(true);
       }
     } catch(err){
       showToast("Connection error: " + err.message, true);
-      loadJobs(true);
+      console.error('[tickAssignMechanic] fetch failed', err);
+      await loadJobs(true);
     }
   });
 }
@@ -1328,6 +1409,18 @@ function renderDashboard(){
     }
   });
 
+  // Supervisor-wise assigned vehicle list — every non-delivered vehicle
+  // grouped under whichever Supervisor it's tagged to, with vehicle
+  // numbers listed out so Admin can see each Supervisor's queue at a
+  // glance without opening My Assigned as that Supervisor.
+  const supervisorGroups = {};
+  inRange.forEach(v=>{
+    if(v.Supervisor && v.Status !== 'delivered'){
+      if(!supervisorGroups[v.Supervisor]) supervisorGroups[v.Supervisor] = [];
+      supervisorGroups[v.Supervisor].push(v);
+    }
+  });
+
   const rangeLabel = (filterFromDate || filterToDate)
     ? `${filterFromDate||'…'} to ${filterToDate||'…'}`
     : 'All time';
@@ -1349,6 +1442,21 @@ function renderDashboard(){
       : Object.entries(mechCounts).sort((a,b)=>b[1]-a[1]).map(([m,c])=>
           `<div class="mech-row"><span>${m}</span><span class="mech-count">${c} job${c>1?'s':''}</span></div>`
         ).join('')
+    }
+    <div class="dash-section-title">Supervisor-wise Assigned Vehicles</div>
+    ${Object.keys(supervisorGroups).length===0
+      ? '<div style="color:var(--text-faint); font-size:12.5px;">No vehicles currently tagged to a Supervisor</div>'
+      : Object.entries(supervisorGroups).map(([supName, vList])=>`
+          <div class="supervisor-group">
+            <div class="supervisor-group-name">${supName} <span class="mech-count">${vList.length} vehicle${vList.length>1?'s':''}</span></div>
+            ${vList.map(v=>`
+              <div class="supervisor-group-row">
+                <span>${v.VehicleNo}</span>
+                <span class="status-tag" data-status="${v.Status}" style="font-size:9px;">${STATUS_LABEL[v.Status]}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')
     }
   `;
 }
