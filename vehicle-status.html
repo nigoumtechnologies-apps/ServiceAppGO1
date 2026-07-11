@@ -282,63 +282,52 @@
   .mechanic-row{display:flex; align-items:center; gap:8px;}
 
   /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
-  .simple-card{gap:8px; padding:10px 12px; cursor:pointer;}
-  /* Simple card colors go by Service Type (Jobcard Type), not stage —
-     Free Service = Blue, General Repair = Pink, everything else = Yellow.
-     These classes are applied by renderSimpleCard() in the script below.
-     All text colors here are deliberately dark for readability against
-     the light pastel backgrounds (previously these inherited the app's
-     default light text color meant for dark backgrounds, which washed
-     out against these pale cards). */
+  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden;}
+  /* Card body colors by Service Type — Free Service = Blue, General
+     Repair = Pink, everything else (Paid Service etc.) = cream/yellow.
+     Matches the reference design's tan/cream card with orange pill
+     badges for Model and Service Type. */
   .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
-  .simple-card.type-blue .veh-no{color:#0b3a5c;}
-  .simple-card.type-blue .jobid-badge{background:#4fa3e0; color:#fff;}
-  .simple-card.type-blue .simple-card-type{color:#0f5788;}
-
   .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
-  .simple-card.type-pink .veh-no{color:#690a3a;}
-  .simple-card.type-pink .jobid-badge{background:#e05a9f; color:#fff;}
-  .simple-card.type-pink .simple-card-type{color:#8f1c52;}
+  .simple-card.type-yellow{background:#fdf1cd; border-color:#c68a00;}
 
-  .simple-card.type-yellow{background:#fff3c4; border-color:#c68a00;}
-  .simple-card.type-yellow .veh-no{color:#4a3600;}
-  .simple-card.type-yellow .jobid-badge{background:#c68a00; color:#fff;}
-  .simple-card.type-yellow .simple-card-type{color:#6b4f00;}
-
-  .simple-card-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
-  .simple-card-top .veh-no{font-size:14.5px; font-weight:800;}
-  .jobid-badge{font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap;}
-  .simple-card-type{font-size:11px; font-weight:700; margin-top:1px;}
-
-  /* Compact single-row tick strip — replaces the old stacked 3-row grid.
-     Each tick is a small circular icon; tapping the mechanic tick (when
-     empty) reveals the dropdown inline, tapping tick 2/3 advances them.
-     Tapping the card itself (not a tick) opens the full history modal
-     with timestamps, per the tap-to-expand requirement. */
-  .simple-tick-strip{display:flex; align-items:center; gap:10px; margin-top:6px;}
-  .simple-tick-strip .mini-tick{
-    width:22px; height:22px; flex:0 0 22px; border-radius:50%;
-    border:2px solid rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center;
-    font-size:13px; font-weight:900; color:#fff; background:rgba(255,255,255,0.5);
+  .simple-card-body{padding:10px 12px 8px;}
+  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .simple-card-top .veh-no{font-size:15px; font-weight:900; color:#1c1c1c; letter-spacing:0.3px;}
+  .jobid-badge{
+    font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;
+    background:#2563eb; color:#fff;
   }
-  .simple-tick-strip .mini-tick.done{background:#16a34a; border-color:#16a34a;}
-  .simple-tick-strip .mini-tick.locked{opacity:0.4;}
-  .simple-tick-strip .tick-connector{flex:1; height:2px; background:rgba(0,0,0,0.15); max-width:20px;}
-  .simple-tick-strip .tick-connector.done{background:#16a34a;}
+  .simple-card-pills{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+  .pill-badge{
+    font-size:10px; font-weight:800; padding:3px 10px; border-radius:5px;
+    background:#e0781f; color:#fff; letter-spacing:0.3px;
+  }
+
+  /* 5-column stage grid — Intake / Assigned / Start / Completed / Delivered,
+     each with its own checkbox and timestamp underneath, matching the
+     reference design's dark navy strip exactly. */
+  .simple-stage-grid{
+    display:grid; grid-template-columns:repeat(5,1fr);
+    background:#1a1440; padding:8px 4px 10px;
+  }
+  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:4px; padding:0 2px;}
+  .simple-stage-label{font-size:8.5px; font-weight:800; color:#c9c3e8; text-transform:uppercase; letter-spacing:0.3px; text-align:center;}
+  .simple-stage-box{
+    width:22px; height:22px; border-radius:5px; border:2px solid #4a4470;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;
+    background:transparent; color:#fff;
+  }
+  .simple-stage-box.done{background:#22c55e; border-color:#22c55e;}
+  .simple-stage-box.clickable{border-color:#f5a524; cursor:pointer;}
+  .simple-stage-time{font-size:7.5px; color:#a39cd6; text-align:center; line-height:1.3; min-height:18px;}
+  .simple-stage-time.done-time{color:#8ce0a8;}
+
   .simple-mechanic-inline{
-    flex:1; background:rgba(255,255,255,0.85); border:1.5px solid rgba(0,0,0,0.2); border-radius:7px;
-    padding:6px 8px; font-size:12px; font-weight:700; color:#1c2024; outline:none;
+    width:100%; background:#fff; border:1.5px solid #4a4470; border-radius:5px;
+    padding:2px 3px; font-size:8px; font-weight:700; color:#1c2024; outline:none;
   }
-  .simple-mechanic-name{font-size:11px; font-weight:700; color:inherit;}
 
-  .simple-tick-grid{display:flex; flex-direction:column; gap:6px;}
-  .simple-tick-cell{
-    display:flex; align-items:center; gap:10px; padding:9px 12px;
-    border-radius:8px; font-size:13px; font-weight:600;
-    background:rgba(255,255,255,0.55);
-  }
-  .simple-tick-cell.mechanic-cell{background:rgba(255,255,255,0.75);}
-  .simple-tick-cell.done-cell{background:rgba(31,166,147,0.2); color:#0a4438;}
   .simple-tick-cell.clickable-cell{background:rgba(255,255,255,0.85); cursor:pointer;}
   .simple-tick-cell.locked-cell{opacity:0.45; cursor:not-allowed;}
 
@@ -498,6 +487,7 @@
     <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
     <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
     <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
+    <span id="supervisorChipsContainer"></span>
   </div>
 
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
@@ -582,6 +572,10 @@ JC1002&#9;TN47CD5678&#9;General repair&#9;2026-07-08"></textarea>
       <input type="text" id="editVehicleNo" style="text-transform:uppercase;">
     </div>
     <div class="modal-field">
+      <label>Model</label>
+      <select id="editModel"></select>
+    </div>
+    <div class="modal-field">
       <label>Intake Date</label>
       <input type="date" id="editIntakeDate">
     </div>
@@ -611,6 +605,7 @@ JC1002&#9;TN47CD5678&#9;General repair&#9;2026-07-08"></textarea>
       <label>Status (Admin can jump to any stage)</label>
       <select id="editStatus">
         <option value="intake">Intake</option>
+        <option value="assigned">Assigned</option>
         <option value="start">Work Start</option>
         <option value="finished">Finished</option>
         <option value="delivered">Delivered</option>
@@ -637,6 +632,12 @@ JC1002&#9;TN47CD5678&#9;General repair&#9;2026-07-08"></textarea>
     <div class="modal-field">
       <label>Vehicle Number</label>
       <input type="text" id="newVehicleNo" placeholder="TN 45 AB 1234" style="text-transform:uppercase;">
+    </div>
+    <div class="modal-field">
+      <label>Model</label>
+      <select id="newModel">
+        <option value="">Select model</option>
+      </select>
     </div>
     <div class="modal-field">
       <label>Intake Date</label>
@@ -697,6 +698,7 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbxvYTFSweC0XcWzx66EQtaO
 let vehicles = [];
 let mechanicsList = [];
 let jobcardTypeList = [];
+let modelsList = [];
 let currentUser = null;
 let activeFilter = "all";
 let searchTerm = "";
@@ -704,8 +706,8 @@ let isSubmitting = false;
 let filterFromDate = "";
 let filterToDate = "";
 
-const STATUS_FLOW = ["intake","start","finished","delivered"];
-const STATUS_LABEL = {intake:"Intake", start:"Work Start", finished:"Finished", delivered:"Delivered"};
+const STATUS_FLOW = ["intake","assigned","start","finished","delivered"];
+const STATUS_LABEL = {intake:"Intake", assigned:"Assigned", start:"Work Start", finished:"Finished", delivered:"Delivered"};
 const NEXT_LABEL = {intake:"Start Work", start:"Mark Finished", finished:"Deliver", delivered:null};
 
 /* =========================================================
@@ -836,11 +838,32 @@ async function loadStaff(){
     if(data.success){
       staffList = data.staff;
       supervisorNames = staffList.filter(s => (s.role||"").toLowerCase() === "supervisor").map(s=>s.fullName);
+      renderSupervisorChips();
       render(); // re-render so Supervisor dropdowns populate once staff data arrives
     }
   } catch(err){
     console.error('[loadStaff] failed', err);
   }
+}
+
+// Admin/Manager see one chip PER SUPERVISOR (e.g. "Arun", "Mahesh",
+// "Hari") instead of a single generic "My Assigned" chip — each shows
+// that specific Supervisor's currently-assigned (not yet delivered)
+// vehicles. Non-admin users never see these; they only get their own
+// "My Assigned" chip instead.
+function renderSupervisorChips(){
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  const container = document.getElementById('supervisorChipsContainer');
+  if(!isAdmin || supervisorNames.length===0){
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = supervisorNames.map(name => {
+    const filterKey = 'supervisor:' + name;
+    return `<div class="chip" data-status="${filterKey}" style="color:#6a4fb8;">
+      <span class="dot"></span>${name} <span class="chip-count" id="count-${filterKey}">0</span>
+    </div>`;
+  }).join('');
 }
 
 function startAutoRefresh(){
@@ -866,6 +889,7 @@ async function loadLists(){
     if(data.success){
       mechanicsList = data.lists.Mechanics || [];
       jobcardTypeList = data.lists.JobcardType || [];
+      modelsList = data.lists.Models || [];
 
       const mechSel = document.getElementById('newMechanic');
       mechSel.innerHTML = '<option value="">Not assigned yet</option>' +
@@ -874,6 +898,10 @@ async function loadLists(){
       const typeSel = document.getElementById('newJobcardType');
       typeSel.innerHTML = '<option value="">Select type</option>' +
         jobcardTypeList.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+      const modelSel = document.getElementById('newModel');
+      modelSel.innerHTML = '<option value="">Select model</option>' +
+        modelsList.map(m=>`<option value="${m}">${m}</option>`).join('');
     }
   } catch(err){
     showToast("Could not load setup lists", true);
@@ -936,6 +964,14 @@ function matchesFilter(v, filterKey){
     const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
     return myName && cardSupervisor === myName && v.Status !== "delivered" && inRange(intakeDateStr);
   }
+  if(filterKey.startsWith("supervisor:")){
+    // Admin-only per-supervisor chips — same "not yet delivered" scope
+    // as My Assigned, just for a specific named Supervisor instead of
+    // "whoever is currently logged in".
+    const targetName = filterKey.slice("supervisor:".length).trim().toLowerCase();
+    const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
+    return cardSupervisor === targetName && v.Status !== "delivered" && inRange(intakeDateStr);
+  }
   // start / finished — unchanged, straightforward status match
   return v.Status === filterKey;
 }
@@ -944,6 +980,11 @@ function updateCounts(){
   document.getElementById('count-all').textContent = vehicles.length;
   ["intake_today","intake_previous","start","finished","delivered","my_assigned"].forEach(key=>{
     document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
+  });
+  // Per-supervisor chip counts (Admin only — element won't exist otherwise)
+  supervisorNames.forEach(name=>{
+    const el = document.getElementById('count-supervisor:'+name);
+    if(el) el.textContent = vehicles.filter(v=>matchesFilter(v, 'supervisor:'+name)).length;
   });
 }
 
@@ -970,11 +1011,7 @@ function render(){
     return;
   }
 
-  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
-
-  listEl.innerHTML = filtered.map(v=>{
-    return isAdmin ? renderAdminCard(v) : renderSimpleCard(v);
-  }).join('');
+  listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
 }
 
 /* ---------------- ADMIN CARD (full detail, unchanged from before) ---------------- */
@@ -1044,9 +1081,16 @@ function renderAdminCard(v){
  * Ticks are sequential — Tick 2 only enabled once Tick 1 is done, etc.
  */
 function renderSimpleCard(v){
-  const tick1Done = v.Status === 'start' || v.Status === 'finished' || v.Status === 'delivered';
-  const tick2Done = v.Status === 'finished' || v.Status === 'delivered';
-  const tick3Done = v.Status === 'delivered';
+  const intakeDone = true; // every card that exists has already passed Intake
+  const assignedDone = ['assigned','start','finished','delivered'].includes(v.Status);
+  const startDone = ['start','finished','delivered'].includes(v.Status);
+  const finishedDone = ['finished','delivered'].includes(v.Status);
+  const deliveredDone = v.Status === 'delivered';
+
+  const assignedClickable = false; // Assigned is done via the mechanic dropdown itself, not a tap
+  const startClickable = assignedDone && !startDone;
+  const finishedClickable = startDone && !finishedDone;
+  const deliveredClickable = finishedDone && !deliveredDone;
 
   const mechanicOptions = ['<option value="">Select Mechanic</option>']
     .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
@@ -1055,36 +1099,62 @@ function renderSimpleCard(v){
   // Color-code by Jobcard Type — matches the paper-card system already
   // in use at the workshop, so the app visually matches physical habit.
   const typeKey = (v.JobcardType||"").trim().toLowerCase();
-  let colorClass = 'type-yellow'; // default for any type not explicitly mapped
+  let colorClass = 'type-yellow'; // default for any type not explicitly mapped (e.g. Paid Service)
   if(typeKey === 'free service') colorClass = 'type-blue';
   else if(typeKey === 'general repair') colorClass = 'type-pink';
 
-  const tick2Clickable = tick1Done && !tick2Done;
-  const tick3Clickable = tick2Done && !tick3Done;
+  const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
 
-  // Tick 1 cell: shows the mechanic dropdown inline while pending
-  // (selecting a name IS the tick), or a small checkmark + name once done.
-  const tick1Cell = tick1Done
-    ? `<span class="mini-tick done">&#10003;</span><span class="simple-mechanic-name">${v.Mechanic||''}</span>`
-    : `<span class="mini-tick"></span><select class="simple-mechanic-inline" onclick="event.stopPropagation()" onchange="event.stopPropagation(); tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
+  // Assigned column: dropdown while pending (picking a name IS the tick),
+  // small checkmark + timestamp once done.
+  const assignedBox = assignedDone
+    ? `<div class="simple-stage-box done">&#10003;</div>`
+    : `<select class="simple-mechanic-inline" onclick="event.stopPropagation()" onchange="event.stopPropagation(); tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
+  const assignedTimeHtml = assignedDone
+    ? `<div class="simple-stage-time done-time">${fmtTime(v.AssignedTime)}<br>${v.Mechanic||''}</div>`
+    : `<div class="simple-stage-time"></div>`;
 
   return `
   <div class="card simple-card ${colorClass}" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
-    <div class="simple-card-top">
-      <span class="veh-no">${v.VehicleNo}</span>
-      <span class="jobid-badge">#${v.JobID}</span>
+    <div class="simple-card-body">
+      <div class="simple-card-top">
+        <span class="veh-no">${v.VehicleNo}</span>
+        <span class="jobid-badge">#${v.JobID}</span>
+      </div>
+      <div class="simple-card-pills">
+        ${v.Model ? `<span class="pill-badge">${v.Model}</span>` : ''}
+        ${v.JobcardType ? `<span class="pill-badge">${v.JobcardType}</span>` : ''}
+      </div>
     </div>
-    <div class="simple-card-type">${v.JobcardType||'—'}</div>
-    <div class="simple-tick-strip">
-      ${tick1Cell}
-      <span class="tick-connector ${tick1Done?'done':''}"></span>
-      <span class="mini-tick ${tick2Done?'done':(tick2Clickable?'':'locked')}"
-            ${tick2Clickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','finished')"`:''}
-            title="Work Finished">${tick2Done?'&#10003;':''}</span>
-      <span class="tick-connector ${tick2Done?'done':''}"></span>
-      <span class="mini-tick ${tick3Done?'done':(tick3Clickable?'':'locked')}"
-            ${tick3Clickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','delivered')"`:''}
-            title="Delivered">${tick3Done?'&#10003;':''}</span>
+    <div class="simple-stage-grid">
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Intake</div>
+        <div class="simple-stage-box done">&#10003;</div>
+        <div class="simple-stage-time done-time">${fmtTime(v.IntakeTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Assigned</div>
+        ${assignedBox}
+        ${assignedTimeHtml}
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Start</div>
+        <div class="simple-stage-box ${startDone?'done':(startClickable?'clickable':'')}"
+             ${startClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','start')"`:''}>${startDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${startDone?'done-time':''}">${fmtTime(v.StartTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Completed</div>
+        <div class="simple-stage-box ${finishedDone?'done':(finishedClickable?'clickable':'')}"
+             ${finishedClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','finished')"`:''}>${finishedDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${finishedDone?'done-time':''}">${fmtTime(v.FinishTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Delivered</div>
+        <div class="simple-stage-box ${deliveredDone?'done':(deliveredClickable?'clickable':'')}"
+             ${deliveredClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','delivered')"`:''}>${deliveredDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>
+      </div>
     </div>
   </div>`;
 }
@@ -1197,10 +1267,10 @@ async function tickAssignMechanic(jobId, mechanic){
   }
   const supervisorTag = currentUser.fullName;
 
-  showConfirm(`Start work on ${v.VehicleNo} with ${mechanic}?`, async () => {
+  showConfirm(`Assign ${mechanic} to ${v.VehicleNo}?`, async () => {
     // optimistic update (visual only — server response below is source of truth)
     v.Mechanic = mechanic;
-    v.Status = 'start';
+    v.Status = 'assigned';
     if(!v.Supervisor) v.Supervisor = supervisorTag;
     render();
 
@@ -1211,7 +1281,7 @@ async function tickAssignMechanic(jobId, mechanic){
       console.log('[tickAssignMechanic] server response:', data);
 
       if(data.success){
-        showToast(`Work started — ${mechanic}`);
+        showToast(`Assigned to ${mechanic}`);
         // Always re-sync this vehicle from the server's actual saved
         // state rather than trusting the optimistic guess above — this
         // is what previously let a silent mismatch (e.g. Supervisor not
@@ -1235,7 +1305,8 @@ async function tickAdvance(jobId, newStatus){
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   if(!v) return;
 
-  const label = newStatus === 'finished' ? 'Work Finished' : 'Delivered';
+  const labelMap = {start:'Work Start', finished:'Work Completed', delivered:'Delivered'};
+  const label = labelMap[newStatus] || newStatus;
   showConfirm(`Mark ${v.VehicleNo} as ${label}?`, async () => {
     const prevStatus = v.Status;
     v.Status = newStatus;
@@ -1247,6 +1318,9 @@ async function tickAdvance(jobId, newStatus){
       const data = await res.json();
       if(data.success){
         showToast(`${v.VehicleNo} → ${label}`);
+        // Re-sync from server so the newly-written timestamp (StartTime/
+        // FinishTime/DeliveredTime) shows correctly under the tick right away.
+        await loadJobs(true);
       } else {
         showToast(data.message || "Update failed", true);
         v.Status = prevStatus;
@@ -1266,6 +1340,7 @@ async function tickAdvance(jobId, newStatus){
 function openAddModal(){
   document.getElementById('newJobId').value = '';
   document.getElementById('newVehicleNo').value = '';
+  document.getElementById('newModel').value = '';
   document.getElementById('newJobcardType').value = '';
   document.getElementById('newMechanic').value = '';
   document.getElementById('newEstDeliveryDate').value = '';
@@ -1289,6 +1364,7 @@ async function submitNewVehicle(){
 
   const jobId = document.getElementById('newJobId').value.trim();
   const vehicleNo = document.getElementById('newVehicleNo').value.trim().toUpperCase();
+  const model = document.getElementById('newModel').value;
   const intakeDate = document.getElementById('newIntakeDate').value;
   const jobcardType = document.getElementById('newJobcardType').value;
   const mechanic = document.getElementById('newMechanic').value;
@@ -1312,7 +1388,7 @@ async function submitNewVehicle(){
 
   const params = new URLSearchParams({
     action: 'addJob',
-    jobId, vehicleNo, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
+    jobId, vehicleNo, model, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
     username: currentUser ? currentUser.username : ''
   });
 
@@ -1333,8 +1409,10 @@ async function submitNewVehicle(){
         Phone: "",
         IntakeDate: intakeDate,
         JobcardType: jobcardType,
+        Model: model,
         Status: "intake",
         IntakeTime: nowStr,
+        AssignedTime: "",
         StartTime: "",
         FinishTime: "",
         DeliveredTime: "",
@@ -1814,6 +1892,10 @@ function openEditModal(){
   const typeSel = document.getElementById('editJobcardType');
   typeSel.innerHTML = '<option value="">Select type</option>' +
     jobcardTypeList.map(t=>`<option value="${t}" ${v.JobcardType===t?'selected':''}>${t}</option>`).join('');
+
+  const modelSel = document.getElementById('editModel');
+  modelSel.innerHTML = '<option value="">Select model</option>' +
+    modelsList.map(m=>`<option value="${m}" ${v.Model===m?'selected':''}>${m}</option>`).join('');
 
   const mechSel = document.getElementById('editMechanic');
   mechSel.innerHTML = '<option value="">Not assigned</option>' +
