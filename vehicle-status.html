@@ -225,6 +225,11 @@
   .chip[data-status="my_assigned"].active{background:#6a4fb8; color:#fff;}
   .chip-count{font-weight:900;}
 
+  .supervisor-view-select{
+    flex:0 0 auto; background:var(--steel); border:1.5px solid #6a4fb8; border-radius:20px;
+    padding:7px 13px; font-size:12.5px; font-weight:700; color:#b9a8ec; outline:none; cursor:pointer;
+  }
+
   /* ---------------- FAB (Add Vehicle) ---------------- */
   .fab{
     position:fixed; bottom:20px; right:20px; z-index:30;
@@ -281,45 +286,42 @@
 
   .mechanic-row{display:flex; align-items:center; gap:8px;}
 
-  /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
-  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden;}
-  /* Card body colors by Service Type — Free Service = Blue, General
-     Repair = Pink, everything else (Paid Service etc.) = cream/yellow.
-     Matches the reference design's tan/cream card with orange pill
-     badges for Model and Service Type. */
-  .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
-  .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
-  .simple-card.type-yellow{background:#fdf1cd; border-color:#c68a00;}
-
-  .simple-card-body{padding:10px 12px 8px;}
-  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
-  .simple-card-top .veh-no{font-size:15px; font-weight:900; color:#1c1c1c; letter-spacing:0.3px;}
-  .jobid-badge{
-    font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;
-    background:#2563eb; color:#fff;
+  /* ---------------- SIMPLE STAGE CARD (all roles) ----------------
+     Matches the reference mock: a rounded outer card containing —
+     1. a solid maroon "ticket" band with the Vehicle Number
+     2. a maroon Jobcard Type band directly under it
+     3. a maroon Jobcard ID band under that
+     4. a dark navy 5-column stage strip (Intake/Assigned/Start/
+        Completed/Delivered) with checkbox + timestamp per column
+  */
+  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden; border-radius:14px; border:1.5px solid #cfd3d8;}
+  .simple-card-band{
+    background:#7a1f1f; color:#fff; text-align:center; font-weight:800;
+    padding:8px 10px; border-bottom:2px solid #5c1717; letter-spacing:0.4px;
   }
-  .simple-card-pills{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
-  .pill-badge{
-    font-size:10px; font-weight:800; padding:3px 10px; border-radius:5px;
-    background:#e0781f; color:#fff; letter-spacing:0.3px;
-  }
+  .simple-card-band.veh-band{font-size:16px; font-family:'Consolas', monospace;}
+  .simple-card-band.type-band{font-size:12.5px; text-transform:uppercase;}
+  .simple-card-band.jobid-band{font-size:12.5px;}
 
   /* 5-column stage grid — Intake / Assigned / Start / Completed / Delivered,
      each with its own checkbox and timestamp underneath, matching the
      reference design's dark navy strip exactly. */
   .simple-stage-grid{
     display:grid; grid-template-columns:repeat(5,1fr);
-    background:#1a1440; padding:8px 4px 10px;
+    background:#1a1440; padding:10px 4px 12px;
   }
-  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:4px; padding:0 2px;}
-  .simple-stage-label{font-size:8.5px; font-weight:800; color:#c9c3e8; text-transform:uppercase; letter-spacing:0.3px; text-align:center;}
+  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:5px; padding:0 2px;}
+  .simple-stage-label{
+    font-size:8.5px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:0.3px;
+    text-align:center; background:#2a2266; border-radius:5px; padding:3px 4px; width:100%;
+  }
   .simple-stage-box{
-    width:22px; height:22px; border-radius:5px; border:2px solid #4a4470;
-    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;
-    background:transparent; color:#fff;
+    width:24px; height:24px; border-radius:5px; border:2px solid #4a4470;
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900;
+    background:#fff; color:#1a1440;
   }
-  .simple-stage-box.done{background:#22c55e; border-color:#22c55e;}
-  .simple-stage-box.clickable{border-color:#f5a524; cursor:pointer;}
+  .simple-stage-box.done{background:#f5c518; border-color:#e0ac00; color:#1a1440;}
+  .simple-stage-box.clickable{border-color:#f5a524; cursor:pointer; background:#fff9ec;}
   .simple-stage-time{font-size:7.5px; color:#a39cd6; text-align:center; line-height:1.3; min-height:18px;}
   .simple-stage-time.done-time{color:#8ce0a8;}
 
@@ -487,7 +489,9 @@
     <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
     <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
     <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
-    <span id="supervisorChipsContainer"></span>
+    <select class="supervisor-view-select" id="supervisorViewSelect" style="display:none;" title="View another Supervisor's queue">
+      <option value="">— Dropdown by Supervisor —</option>
+    </select>
   </div>
 
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
@@ -705,6 +709,7 @@ let searchTerm = "";
 let isSubmitting = false;
 let filterFromDate = "";
 let filterToDate = "";
+let supervisorViewOverride = ""; // when an Admin/Supervisor picks another Supervisor's queue from the dropdown
 
 const STATUS_FLOW = ["intake","assigned","start","finished","delivered"];
 const STATUS_LABEL = {intake:"Intake", assigned:"Assigned", start:"Work Start", finished:"Finished", delivered:"Delivered"};
@@ -752,6 +757,7 @@ function enterApp(){
   // (vehicles tagged to them). This replaces the earlier design where
   // everyone shared the same tab set.
   const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
+  const isSupervisor = (currentUser.role || "").toLowerCase() === "supervisor";
   const allChip = document.getElementById('allChip');
   const dashBtn = document.getElementById('dashBtn');
   const importBtn = document.getElementById('importBtn');
@@ -759,6 +765,7 @@ function enterApp(){
   const finishedChip = document.getElementById('finishedChip');
   const deliveredChip = document.getElementById('deliveredChip');
   const myAssignedChip = document.getElementById('myAssignedChip');
+  const supervisorViewSelect = document.getElementById('supervisorViewSelect');
 
   if(!isAdmin){
     allChip.style.display = 'none';
@@ -780,6 +787,11 @@ function enterApp(){
     deliveredChip.style.display = '';
     myAssignedChip.style.display = 'none';
   }
+
+  // Supervisor-view dropdown: lets a Supervisor (or Admin) switch which
+  // Supervisor's queue they're looking at, in place of the old row of
+  // individual per-supervisor chips. Visible to Admin and Supervisor roles.
+  supervisorViewSelect.style.display = (isAdmin || isSupervisor) ? '' : 'none';
 
   // Date range now defaults to today for everyone, and governs every
   // chip's results (not just intake). Users can widen it to see any
@@ -838,7 +850,7 @@ async function loadStaff(){
     if(data.success){
       staffList = data.staff;
       supervisorNames = staffList.filter(s => (s.role||"").toLowerCase() === "supervisor").map(s=>s.fullName);
-      renderSupervisorChips();
+      renderSupervisorViewOptions();
       render(); // re-render so Supervisor dropdowns populate once staff data arrives
     }
   } catch(err){
@@ -846,24 +858,20 @@ async function loadStaff(){
   }
 }
 
-// Admin/Manager see one chip PER SUPERVISOR (e.g. "Arun", "Mahesh",
-// "Hari") instead of a single generic "My Assigned" chip — each shows
-// that specific Supervisor's currently-assigned (not yet delivered)
-// vehicles. Non-admin users never see these; they only get their own
-// "My Assigned" chip instead.
-function renderSupervisorChips(){
+// Populates the "Dropdown by Supervisor" select in the filter bar with
+// every Supervisor's name, so Admin/Supervisor users can switch whose
+// queue they're viewing. Replaces the earlier one-chip-per-supervisor row.
+function renderSupervisorViewOptions(){
+  const select = document.getElementById('supervisorViewSelect');
   const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
-  const container = document.getElementById('supervisorChipsContainer');
-  if(!isAdmin || supervisorNames.length===0){
-    container.innerHTML = '';
+  const isSupervisor = currentUser && (currentUser.role||"").toLowerCase() === "supervisor";
+  if(!isAdmin && !isSupervisor){
+    select.innerHTML = '';
     return;
   }
-  container.innerHTML = supervisorNames.map(name => {
-    const filterKey = 'supervisor:' + name;
-    return `<div class="chip" data-status="${filterKey}" style="color:#6a4fb8;">
-      <span class="dot"></span>${name} <span class="chip-count" id="count-${filterKey}">0</span>
-    </div>`;
-  }).join('');
+  const placeholder = isSupervisor ? 'My Queue' : '— Dropdown by Supervisor —';
+  select.innerHTML = `<option value="">${placeholder}</option>` +
+    supervisorNames.map(name=>`<option value="${name}" ${supervisorViewOverride===name?'selected':''}>${name}</option>`).join('');
 }
 
 function startAutoRefresh(){
@@ -965,9 +973,9 @@ function matchesFilter(v, filterKey){
     return myName && cardSupervisor === myName && v.Status !== "delivered" && inRange(intakeDateStr);
   }
   if(filterKey.startsWith("supervisor:")){
-    // Admin-only per-supervisor chips — same "not yet delivered" scope
-    // as My Assigned, just for a specific named Supervisor instead of
-    // "whoever is currently logged in".
+    // Per-supervisor view — same "not yet delivered" scope as My
+    // Assigned, just for a specific named Supervisor picked from the
+    // "Dropdown by Supervisor" select instead of "whoever is logged in".
     const targetName = filterKey.slice("supervisor:".length).trim().toLowerCase();
     const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
     return cardSupervisor === targetName && v.Status !== "delivered" && inRange(intakeDateStr);
@@ -981,18 +989,18 @@ function updateCounts(){
   ["intake_today","intake_previous","start","finished","delivered","my_assigned"].forEach(key=>{
     document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
   });
-  // Per-supervisor chip counts (Admin only — element won't exist otherwise)
-  supervisorNames.forEach(name=>{
-    const el = document.getElementById('count-supervisor:'+name);
-    if(el) el.textContent = vehicles.filter(v=>matchesFilter(v, 'supervisor:'+name)).length;
-  });
 }
 
 function render(){
   updateCounts();
   const listEl = document.getElementById('list');
+  // supervisorViewOverride (from the "Dropdown by Supervisor" select)
+  // takes priority over whichever chip is active, letting a Supervisor
+  // or Admin peek at a specific named Supervisor's queue without losing
+  // their place in the chip row.
+  const effectiveFilter = supervisorViewOverride ? ('supervisor:' + supervisorViewOverride) : activeFilter;
   let filtered = vehicles.filter(v=>{
-    const matchesStatus = matchesFilter(v, activeFilter);
+    const matchesStatus = matchesFilter(v, effectiveFilter);
     const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
@@ -1014,80 +1022,22 @@ function render(){
   listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
 }
 
-/* ---------------- ADMIN CARD (full detail, unchanged from before) ---------------- */
-function renderAdminCard(v){
-  const nextLabel = NEXT_LABEL[v.Status];
-  // Deliver requires a Supervisor to be picked first (their approval) —
-  // once a vehicle reaches "finished", the Deliver button stays locked
-  // until Supervisor is set. All other transitions are unaffected.
-  const supervisorRequired = v.Status === 'finished';
-  const supervisorMissing = supervisorRequired && !v.Supervisor;
-
-  let actionBtn;
-  if(!nextLabel){
-    actionBtn = `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
-  } else if(supervisorMissing){
-    actionBtn = `<button class="btn-status" disabled style="opacity:0.5;" title="Select a Supervisor first">Deliver (needs approval)</button>`;
-  } else {
-    actionBtn = `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`;
-  }
-
-  const mechanicOptions = ['<option value="">Not assigned</option>']
-    .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
-    .join('');
-
-  const supervisorOptions = ['<option value="">Select Supervisor</option>']
-    .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
-    .join('');
-
-  return `
-  <div class="card" data-status="${v.Status}">
-    <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
-      <div>
-        <div class="veh-no">${v.VehicleNo}</div>
-        ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
-      </div>
-      <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
-    </div>
-    <div class="card-meta">
-      <span>#${v.JobID}</span>
-      <span>&#128197; ${v.IntakeDate||''}</span>
-      <span>&#128337; ${v.IntakeTime||''}</span>
-    </div>
-    ${v.EstDeliveryDate ? `<div class="card-meta"><span>&#9200; Est: ${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</span></div>` : ''}
-    <div class="mechanic-row">
-      <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
-        ${mechanicOptions}
-      </select>
-    </div>
-    ${supervisorRequired ? `
-    <div class="mechanic-row">
-      <select class="mechanic-select" onchange="assignSupervisor('${v.JobID}', this.value)">
-        ${supervisorOptions}
-      </select>
-    </div>` : ''}
-    <div class="card-actions">
-      ${actionBtn}
-    </div>
-  </div>`;
-}
-
-/* ---------------- SIMPLE CARD (Supervisor/Mechanic view) ---------------- *
- * Per requirement: only Jobcard#, Vehicle#, Service Type, and 3 ticks.
- * Tick 1 = pick Mechanic (this call also tags Supervisor + advances
- *          status to "start" — see assignMechanic in backend).
- * Tick 2 = manual tick by Supervisor, advances to "finished".
- * Tick 3 = manual tick by Supervisor, advances to "delivered".
- * Ticks are sequential — Tick 2 only enabled once Tick 1 is done, etc.
+/* ---------------- SIMPLE CARD (all roles) ---------------- *
+ * Matches the reference mock: maroon "ticket" bands for Vehicle No,
+ * Jobcard Type, and Jobcard ID, stacked above the dark navy 5-column
+ * stage strip (Intake / Assigned / Start / Completed / Delivered).
+ * Tick 1 (Assigned) = pick Mechanic (this call also tags Supervisor +
+ *          advances status to "assigned" — see assignMechanic in backend).
+ * Tick 2 (Start) / Tick 3 (Completed) / Tick 4 (Delivered) = manual
+ *          tap, advances status one stage at a time.
+ * Ticks are sequential — each is only enabled once the previous is done.
  */
 function renderSimpleCard(v){
-  const intakeDone = true; // every card that exists has already passed Intake
   const assignedDone = ['assigned','start','finished','delivered'].includes(v.Status);
   const startDone = ['start','finished','delivered'].includes(v.Status);
   const finishedDone = ['finished','delivered'].includes(v.Status);
   const deliveredDone = v.Status === 'delivered';
 
-  const assignedClickable = false; // Assigned is done via the mechanic dropdown itself, not a tap
   const startClickable = assignedDone && !startDone;
   const finishedClickable = startDone && !finishedDone;
   const deliveredClickable = finishedDone && !deliveredDone;
@@ -1095,13 +1045,6 @@ function renderSimpleCard(v){
   const mechanicOptions = ['<option value="">Select Mechanic</option>']
     .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
     .join('');
-
-  // Color-code by Jobcard Type — matches the paper-card system already
-  // in use at the workshop, so the app visually matches physical habit.
-  const typeKey = (v.JobcardType||"").trim().toLowerCase();
-  let colorClass = 'type-yellow'; // default for any type not explicitly mapped (e.g. Paid Service)
-  if(typeKey === 'free service') colorClass = 'type-blue';
-  else if(typeKey === 'general repair') colorClass = 'type-pink';
 
   const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
 
@@ -1115,17 +1058,11 @@ function renderSimpleCard(v){
     : `<div class="simple-stage-time"></div>`;
 
   return `
-  <div class="card simple-card ${colorClass}" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
-    <div class="simple-card-body">
-      <div class="simple-card-top">
-        <span class="veh-no">${v.VehicleNo}</span>
-        <span class="jobid-badge">#${v.JobID}</span>
-      </div>
-      <div class="simple-card-pills">
-        ${v.Model ? `<span class="pill-badge">${v.Model}</span>` : ''}
-        ${v.JobcardType ? `<span class="pill-badge">${v.JobcardType}</span>` : ''}
-      </div>
-    </div>
+  <div class="card simple-card" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
+    <div class="simple-card-band veh-band">${v.VehicleNo}</div>
+    ${v.Model ? `<div class="simple-card-band type-band">${v.Model}</div>` : ''}
+    ${v.JobcardType ? `<div class="simple-card-band type-band">${v.JobcardType}</div>` : ''}
+    <div class="simple-card-band jobid-band">#${v.JobID}</div>
     <div class="simple-stage-grid">
       <div class="simple-stage-col">
         <div class="simple-stage-label">Intake</div>
@@ -1250,11 +1187,11 @@ async function assignSupervisor(jobId, supervisor){
 }
 
 /* =========================================================
-   TICK ACTIONS — Supervisor/Mechanic simplified card
+   TICK ACTIONS — simplified card, all roles
    ========================================================= */
 
 // Tick 1: picking a Mechanic here also tags Supervisor (first time only)
-// and advances Status to "start" — all handled server-side in one call.
+// and advances Status to "assigned" — all handled server-side in one call.
 async function tickAssignMechanic(jobId, mechanic){
   if(!mechanic) return; // placeholder "Select Mechanic" option chosen — no-op
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
@@ -1299,8 +1236,8 @@ async function tickAssignMechanic(jobId, mechanic){
   });
 }
 
-// Tick 2 / Tick 3: straightforward status advance, same endpoint as
-// advanceStatus but triggered by tapping the tick row instead of a button.
+// Tick 2 / Tick 3 / Tick 4: straightforward status advance, same endpoint
+// as advanceStatus but triggered by tapping the tick box instead of a button.
 async function tickAdvance(jobId, newStatus){
   const v = vehicles.find(x=>String(x.JobID)===String(jobId));
   if(!v) return;
@@ -1455,6 +1392,18 @@ document.getElementById('filters').addEventListener('click', e=>{
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   chip.classList.add('active');
   activeFilter = chip.dataset.status;
+  // Picking any chip clears the "view another Supervisor's queue"
+  // override so the chip row and dropdown never fight each other.
+  supervisorViewOverride = '';
+  document.getElementById('supervisorViewSelect').value = '';
+  render();
+});
+document.getElementById('supervisorViewSelect').addEventListener('change', e=>{
+  supervisorViewOverride = e.target.value;
+  if(supervisorViewOverride){
+    // Visually deselect chips while a Supervisor-view override is active
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  }
   render();
 });
 document.getElementById('filterFromDate').addEventListener('change', e=>{
