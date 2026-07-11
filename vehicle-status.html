@@ -282,28 +282,54 @@
   .mechanic-row{display:flex; align-items:center; gap:8px;}
 
   /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
-  .simple-card{gap:10px;}
+  .simple-card{gap:8px; padding:10px 12px; cursor:pointer;}
   /* Simple card colors go by Service Type (Jobcard Type), not stage —
      Free Service = Blue, General Repair = Pink, everything else = Yellow.
-     These classes are applied by renderSimpleCard() in the script below. */
+     These classes are applied by renderSimpleCard() in the script below.
+     All text colors here are deliberately dark for readability against
+     the light pastel backgrounds (previously these inherited the app's
+     default light text color meant for dark backgrounds, which washed
+     out against these pale cards). */
   .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
-  .simple-card.type-blue .veh-no{color:#0b4a75;}
+  .simple-card.type-blue .veh-no{color:#0b3a5c;}
   .simple-card.type-blue .jobid-badge{background:#4fa3e0; color:#fff;}
-  .simple-card.type-blue .simple-card-type{color:#1a6aa8;}
+  .simple-card.type-blue .simple-card-type{color:#0f5788;}
 
   .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
-  .simple-card.type-pink .veh-no{color:#7a0d47;}
+  .simple-card.type-pink .veh-no{color:#690a3a;}
   .simple-card.type-pink .jobid-badge{background:#e05a9f; color:#fff;}
-  .simple-card.type-pink .simple-card-type{color:#a3225f;}
+  .simple-card.type-pink .simple-card-type{color:#8f1c52;}
 
-  .simple-card.type-yellow{background:#fff8e1; border-color:#e0a325;}
-  .simple-card.type-yellow .veh-no{color:#5c4300;}
-  .simple-card.type-yellow .jobid-badge{background:#e0a325; color:#2a2108;}
-  .simple-card.type-yellow .simple-card-type{color:#8a6d00;}
+  .simple-card.type-yellow{background:#fff3c4; border-color:#c68a00;}
+  .simple-card.type-yellow .veh-no{color:#4a3600;}
+  .simple-card.type-yellow .jobid-badge{background:#c68a00; color:#fff;}
+  .simple-card.type-yellow .simple-card-type{color:#6b4f00;}
 
-  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
-  .jobid-badge{font-size:11px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;}
-  .simple-card-type{font-size:12.5px; font-weight:600; margin-top:2px; margin-bottom:10px;}
+  .simple-card-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .simple-card-top .veh-no{font-size:14.5px; font-weight:800;}
+  .jobid-badge{font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap;}
+  .simple-card-type{font-size:11px; font-weight:700; margin-top:1px;}
+
+  /* Compact single-row tick strip — replaces the old stacked 3-row grid.
+     Each tick is a small circular icon; tapping the mechanic tick (when
+     empty) reveals the dropdown inline, tapping tick 2/3 advances them.
+     Tapping the card itself (not a tick) opens the full history modal
+     with timestamps, per the tap-to-expand requirement. */
+  .simple-tick-strip{display:flex; align-items:center; gap:10px; margin-top:6px;}
+  .simple-tick-strip .mini-tick{
+    width:22px; height:22px; flex:0 0 22px; border-radius:50%;
+    border:2px solid rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:900; color:#fff; background:rgba(255,255,255,0.5);
+  }
+  .simple-tick-strip .mini-tick.done{background:#16a34a; border-color:#16a34a;}
+  .simple-tick-strip .mini-tick.locked{opacity:0.4;}
+  .simple-tick-strip .tick-connector{flex:1; height:2px; background:rgba(0,0,0,0.15); max-width:20px;}
+  .simple-tick-strip .tick-connector.done{background:#16a34a;}
+  .simple-mechanic-inline{
+    flex:1; background:rgba(255,255,255,0.85); border:1.5px solid rgba(0,0,0,0.2); border-radius:7px;
+    padding:6px 8px; font-size:12px; font-weight:700; color:#1c2024; outline:none;
+  }
+  .simple-mechanic-name{font-size:11px; font-weight:700; color:inherit;}
 
   .simple-tick-grid{display:flex; flex-direction:column; gap:6px;}
   .simple-tick-cell{
@@ -470,7 +496,7 @@
     <div class="chip" data-status="intake_previous"><span class="dot"></span>Previous Intake <span class="chip-count" id="count-intake_previous">0</span></div>
     <div class="chip" data-status="start" id="startChip"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
     <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
-    <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered Today <span class="chip-count" id="count-delivered">0</span></div>
+    <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
     <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
   </div>
 
@@ -738,7 +764,7 @@ function enterApp(){
     importBtn.style.display = 'none';
     startChip.style.display = 'none';
     finishedChip.style.display = 'none';
-    deliveredChip.style.display = 'none';
+    deliveredChip.style.display = ''; // Delivered is now visible to all users, not just Admin
     myAssignedChip.style.display = '';
     document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
     document.querySelector('.chip[data-status="intake_today"]').classList.add('active');
@@ -752,6 +778,15 @@ function enterApp(){
     deliveredChip.style.display = '';
     myAssignedChip.style.display = 'none';
   }
+
+  // Date range now defaults to today for everyone, and governs every
+  // chip's results (not just intake). Users can widen it to see any
+  // past period across Today Intake / Previous Intake / Delivered / etc.
+  const today = todayDateStr();
+  filterFromDate = today;
+  filterToDate = today;
+  document.getElementById('filterFromDate').value = today;
+  document.getElementById('filterToDate').value = today;
 
   initApp();
 }
@@ -877,23 +912,29 @@ function todayDateStr(){
 // the counts in the filter bar and the actual list filtering —
 // keeps them from ever drifting out of sync with each other.
 function matchesFilter(v, filterKey){
-  const today = todayDateStr();
   const intakeDateStr = (v.IntakeDate||"").toString().slice(0,10);
   const deliveredDateStr = (v.DeliveredTime||"").toString().slice(0,10);
 
+  // Date range now governs every chip, not just intake — defaults to
+  // today (set where filterFromDate/filterToDate are initialized) but
+  // can be widened by the user to see any period across all tags.
+  const inRange = (dateStr) => {
+    if(!dateStr) return false;
+    return (!filterFromDate || dateStr >= filterFromDate) && (!filterToDate || dateStr <= filterToDate);
+  };
+
   if(filterKey === "all") return true;
-  if(filterKey === "intake_today") return v.Status==="intake" && intakeDateStr === today;
-  if(filterKey === "intake_previous") return v.Status==="intake" && intakeDateStr !== "" && intakeDateStr < today;
-  if(filterKey === "delivered") return v.Status==="delivered" && deliveredDateStr === today;
+  if(filterKey === "intake_today") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr === todayDateStr();
+  if(filterKey === "intake_previous") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr !== todayDateStr();
+  if(filterKey === "delivered") return v.Status==="delivered" && inRange(deliveredDateStr);
   if(filterKey === "my_assigned"){
     // Vehicles permanently tagged to the logged-in Supervisor (set once,
-    // the first time a Mechanic was assigned) and not yet delivered.
-    // Comparison is trimmed + case-insensitive to avoid silent mismatches
-    // from stray whitespace or casing differences between Users sheet
-    // FullName and what got saved on the job card.
+    // the first time a Mechanic was assigned) and not yet delivered —
+    // once Delivered, a card leaves My Assigned and only shows under
+    // the Delivered chip instead (per current requirement).
     const myName = currentUser ? (currentUser.fullName||"").trim().toLowerCase() : null;
     const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
-    return myName && cardSupervisor === myName && v.Status !== "delivered";
+    return myName && cardSupervisor === myName && v.Status !== "delivered" && inRange(intakeDateStr);
   }
   // start / finished — unchanged, straightforward status match
   return v.Status === filterKey;
@@ -1018,40 +1059,32 @@ function renderSimpleCard(v){
   if(typeKey === 'free service') colorClass = 'type-blue';
   else if(typeKey === 'general repair') colorClass = 'type-pink';
 
-  // Tick 1 shows as a checkbox + mechanic name once done, or the dropdown
-  // itself while pending (selecting a name IS the tick).
-  const tick1Box = tick1Done
-    ? `<span class="mini-tick done">&#10003;</span>`
-    : `<span class="mini-tick"></span>`;
-  const tick1Content = tick1Done
-    ? `<span class="tick-mini-label">${v.Mechanic||''}</span>`
-    : `<select class="mini-select" onchange="tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
-
   const tick2Clickable = tick1Done && !tick2Done;
   const tick3Clickable = tick2Done && !tick3Done;
-  const tick2CellClass = tick2Done ? 'done-cell' : (tick2Clickable ? 'clickable-cell' : 'locked-cell');
-  const tick3CellClass = tick3Done ? 'done-cell' : (tick3Clickable ? 'clickable-cell' : 'locked-cell');
+
+  // Tick 1 cell: shows the mechanic dropdown inline while pending
+  // (selecting a name IS the tick), or a small checkmark + name once done.
+  const tick1Cell = tick1Done
+    ? `<span class="mini-tick done">&#10003;</span><span class="simple-mechanic-name">${v.Mechanic||''}</span>`
+    : `<span class="mini-tick"></span><select class="simple-mechanic-inline" onclick="event.stopPropagation()" onchange="event.stopPropagation(); tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
 
   return `
-  <div class="card simple-card ${colorClass}" data-status="${v.Status}">
+  <div class="card simple-card ${colorClass}" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
     <div class="simple-card-top">
-      <div class="veh-no">${v.VehicleNo}</div>
-      <div class="jobid-badge">#${v.JobID}</div>
+      <span class="veh-no">${v.VehicleNo}</span>
+      <span class="jobid-badge">#${v.JobID}</span>
     </div>
     <div class="simple-card-type">${v.JobcardType||'—'}</div>
-    <div class="simple-tick-grid">
-      <div class="simple-tick-cell mechanic-cell">
-        ${tick1Box}
-        ${tick1Content}
-      </div>
-      <div class="simple-tick-cell ${tick2CellClass}" ${tick2Clickable?`onclick="tickAdvance('${v.JobID}','finished')"`:''}>
-        <span class="mini-tick ${tick2Done?'done':''}">${tick2Done?'&#10003;':''}</span>
-        <span class="tick-mini-label">Work Finished</span>
-      </div>
-      <div class="simple-tick-cell ${tick3CellClass}" ${tick3Clickable?`onclick="tickAdvance('${v.JobID}','delivered')"`:''}>
-        <span class="mini-tick ${tick3Done?'done':''}">${tick3Done?'&#10003;':''}</span>
-        <span class="tick-mini-label">Delivered</span>
-      </div>
+    <div class="simple-tick-strip">
+      ${tick1Cell}
+      <span class="tick-connector ${tick1Done?'done':''}"></span>
+      <span class="mini-tick ${tick2Done?'done':(tick2Clickable?'':'locked')}"
+            ${tick2Clickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','finished')"`:''}
+            title="Work Finished">${tick2Done?'&#10003;':''}</span>
+      <span class="tick-connector ${tick2Done?'done':''}"></span>
+      <span class="mini-tick ${tick3Done?'done':(tick3Clickable?'':'locked')}"
+            ${tick3Clickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','delivered')"`:''}
+            title="Delivered">${tick3Done?'&#10003;':''}</span>
     </div>
   </div>`;
 }
