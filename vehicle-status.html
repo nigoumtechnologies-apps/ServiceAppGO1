@@ -7,18 +7,18 @@
 <style>
   :root{
     --page-bg:#f2f3f5;
-    --charcoal:#1c2024;
-    --charcoal-2:#262b30;
-    --steel:#3a4148;
-    --steel-line:#454d55;
+    --charcoal:#ffffff;
+    --charcoal-2:#f7f8fa;
+    --steel:#eef0f3;
+    --steel-line:#d7dbe0;
     --orange:#ff6b1a;
-    --orange-dim:#4a2e18;
+    --orange-dim:#ffe4d1;
     --teal:#1fa693;
-    --teal-dim:#123833;
+    --teal-dim:#d7f5ef;
     --amber:#e0a325;
-    --amber-dim:#4a3a12;
-    --text:#eef1f3;
-    --text-dim:#9aa4ab;
+    --amber-dim:#fbedd2;
+    --text:#111418;
+    --text-dim:#3a4148;
     --text-faint:#6b7580;
 
     /* Card colors — one distinct look per stage */
@@ -31,21 +31,9 @@
     --card-finished-bg:#e8f8f2;
     --card-finished-border:#1fa693;
     --card-finished-text:#0a4438;
-    --card-delivered-bg:#1c2024;
-    --card-delivered-border:#454d55;
-    --card-delivered-text:#eef1f3;
-
-    /* Reference-mock palette — maroon header pills + navy stage strip,
-       used by the simple tick card (Supervisor/Mechanic/Admin list view)
-       and by the filter/stat bar under the header. */
-    --mock-maroon:#5c1f1f;
-    --mock-maroon-2:#6e2626;
-    --mock-navy:#1a1440;
-    --mock-navy-line:#4a4470;
-    --mock-navy-time:#a39cd6;
-    --mock-navy-time-done:#8ce0a8;
-    --mock-card-bg:#f4ecd8;
-    --mock-card-border:#d8c9a3;
+    --card-delivered-bg:#eef0f3;
+    --card-delivered-border:#c3c8cf;
+    --card-delivered-text:#111418;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
@@ -212,31 +200,30 @@
   .search-clear{position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:18px; background:none; border:none; display:none; padding:4px; cursor:pointer;}
   .search-clear.show{display:block;}
 
-  /* ---------------- FILTER CHIPS (styled as the reference mock's
-     orange stat bar with dark rectangular buttons) ---------------- */
-  .filters{
-    display:flex; gap:8px; padding:12px 14px; overflow-x:auto;
-    background:var(--orange); border-bottom:1px solid var(--orange);
-  }
+  /* ---------------- FILTER CHIPS ---------------- */
+  .filters{display:flex; gap:8px; padding:12px 16px; overflow-x:auto; background:var(--charcoal-2); border-bottom:1px solid var(--steel-line);}
   .filters::-webkit-scrollbar{display:none;}
   .chip{
-    flex:1 0 auto; min-width:64px; padding:9px 10px; border-radius:8px; font-size:10.5px; font-weight:800;
-    border:none; background:var(--charcoal); color:#fff;
-    white-space:normal; text-align:center; line-height:1.35;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-    cursor:pointer; user-select:none; text-transform:uppercase; letter-spacing:0.2px;
+    flex:0 0 auto; padding:7px 13px; border-radius:20px; font-size:12.5px; font-weight:700;
+    border:1.5px solid var(--steel-line); background:var(--steel); color:var(--text-dim);
+    white-space:nowrap; display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
   }
-  .chip .dot{display:none;} /* dark-button style has no color dot, count is the indicator */
-  .chip-count{font-weight:900; font-size:14px; color:#fff; text-transform:none;}
-  .chip.active{background:var(--mock-maroon); color:#fff; box-shadow:inset 0 0 0 1.5px #fff3;}
-  .chip.active .chip-count{color:#fff;}
-  .chip[data-status="all"].active{background:var(--mock-maroon);}
-  .chip[data-status="intake_today"].active,
-  .chip[data-status="intake_previous"].active,
-  .chip[data-status="start"].active,
-  .chip[data-status="finished"].active,
-  .chip[data-status="delivered"].active,
-  .chip[data-status="my_assigned"].active{background:var(--mock-maroon);}
+  .chip .dot{width:7px; height:7px; border-radius:50%; background:currentColor;}
+  .chip.active{color:var(--charcoal); border-color:transparent;}
+  .chip[data-status="all"].active{background:var(--text); color:var(--charcoal);}
+  .chip[data-status="intake_today"]{color:var(--amber);}
+  .chip[data-status="intake_today"].active{background:var(--amber); color:#2a2108;}
+  .chip[data-status="intake_previous"]{color:#b8860b;}
+  .chip[data-status="intake_previous"].active{background:#b8860b; color:#2a2108;}
+  .chip[data-status="start"]{color:var(--orange);}
+  .chip[data-status="start"].active{background:var(--orange); color:#2e1500;}
+  .chip[data-status="finished"]{color:var(--teal);}
+  .chip[data-status="finished"].active{background:var(--teal); color:#04211c;}
+  .chip[data-status="delivered"]{color:var(--text-faint);}
+  .chip[data-status="delivered"].active{background:var(--text-faint); color:var(--charcoal);}
+  .chip[data-status="my_assigned"]{color:#6a4fb8;}
+  .chip[data-status="my_assigned"].active{background:#6a4fb8; color:#fff;}
+  .chip-count{font-weight:900;}
 
   /* ---------------- FAB (Add Vehicle) ---------------- */
   .fab{
@@ -294,30 +281,27 @@
 
   .mechanic-row{display:flex; align-items:center; gap:8px;}
 
-  /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic/Admin view) ----------------
-     Matches the reference mock exactly: cream card body, maroon vehicle-no
-     and job-id pills on top, orange pills for Model/Service Type below,
-     and a dark navy 5-column stage strip with checkmarks + timestamps. */
-  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden;
-    background:var(--mock-card-bg); border:2px solid var(--mock-card-border); border-radius:14px;}
-  .simple-card.type-blue,
-  .simple-card.type-pink,
-  .simple-card.type-yellow{background:var(--mock-card-bg); border-color:var(--mock-card-border);}
+  /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
+  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden;}
+  /* Card body colors by Service Type — Free Service = Blue, General
+     Repair = Pink, everything else (Paid Service etc.) = cream/yellow.
+     Matches the reference design's tan/cream card with orange pill
+     badges for Model and Service Type. */
+  .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
+  .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
+  .simple-card.type-yellow{background:#fdf1cd; border-color:#c68a00;}
 
   .simple-card-body{padding:10px 12px 8px;}
-  .simple-card-top{display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;}
-  .simple-card-top .veh-no{
-    font-size:13px; font-weight:900; color:#fff; letter-spacing:0.5px;
-    background:var(--mock-maroon); padding:6px 14px; border-radius:8px;
-  }
+  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .simple-card-top .veh-no{font-size:15px; font-weight:900; color:#1c1c1c; letter-spacing:0.3px;}
   .jobid-badge{
-    font-size:12px; font-weight:900; padding:6px 14px; border-radius:8px; white-space:nowrap;
-    background:var(--mock-maroon); color:#fff; letter-spacing:0.5px;
+    font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;
+    background:#2563eb; color:#fff;
   }
-  .simple-card-pills{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center;}
+  .simple-card-pills{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
   .pill-badge{
-    font-size:11px; font-weight:900; padding:6px 16px; border-radius:8px;
-    background:var(--orange); color:#fff; letter-spacing:0.3px;
+    font-size:10px; font-weight:800; padding:3px 10px; border-radius:5px;
+    background:#e0781f; color:#fff; letter-spacing:0.3px;
   }
 
   /* 5-column stage grid — Intake / Assigned / Start / Completed / Delivered,
@@ -325,26 +309,22 @@
      reference design's dark navy strip exactly. */
   .simple-stage-grid{
     display:grid; grid-template-columns:repeat(5,1fr);
-    background:var(--mock-navy); padding:10px 4px 12px; margin-top:2px;
+    background:#1a1440; padding:8px 4px 10px;
   }
-  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:5px; padding:0 2px;}
-  .simple-stage-label{
-    font-size:9px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:0.3px;
-    text-align:center; background:rgba(255,255,255,0.08); padding:3px 6px; border-radius:5px; width:100%;
-  }
+  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:4px; padding:0 2px;}
+  .simple-stage-label{font-size:8.5px; font-weight:800; color:#c9c3e8; text-transform:uppercase; letter-spacing:0.3px; text-align:center;}
   .simple-stage-box{
-    width:24px; height:24px; border-radius:5px; border:2px solid var(--mock-navy-line);
-    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900;
-    background:#fff; color:var(--mock-navy);
+    width:22px; height:22px; border-radius:5px; border:2px solid #4a4470;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;
+    background:transparent; color:#fff;
   }
-  .simple-stage-box.done{background:#fff; border-color:var(--teal); color:var(--teal);}
-  .simple-stage-box.clickable{border-color:var(--amber); cursor:pointer; background:rgba(255,255,255,0.15); color:#fff;}
-  .simple-stage-time{font-size:7.5px; color:var(--mock-navy-time); text-align:center; line-height:1.3; min-height:18px;
-    background:rgba(255,255,255,0.06); border-radius:4px; padding:2px 3px; width:100%;}
-  .simple-stage-time.done-time{color:var(--mock-navy-time-done);}
+  .simple-stage-box.done{background:#22c55e; border-color:#22c55e;}
+  .simple-stage-box.clickable{border-color:#f5a524; cursor:pointer;}
+  .simple-stage-time{font-size:7.5px; color:#a39cd6; text-align:center; line-height:1.3; min-height:18px;}
+  .simple-stage-time.done-time{color:#8ce0a8;}
 
   .simple-mechanic-inline{
-    width:100%; background:#fff; border:1.5px solid var(--mock-navy-line); border-radius:5px;
+    width:100%; background:#fff; border:1.5px solid #4a4470; border-radius:5px;
     padding:2px 3px; font-size:8px; font-weight:700; color:#1c2024; outline:none;
   }
 
@@ -438,6 +418,7 @@
   .loading{text-align:center; padding:40px; color:var(--text-faint); font-size:13px;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -477,7 +458,7 @@
       <div class="user-chip">
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
-        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Import from DMS" style="display:none;">&#128229;</button>
+        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Bulk Upload (Excel)" style="display:none;">&#128229;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -507,7 +488,7 @@
     <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
     <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
     <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
-    <span id="supervisorChipsContainer"></span>
+    <span id="supervisorChipsContainer" style="display:flex; gap:8px;"></span>
   </div>
 
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
@@ -549,18 +530,25 @@
 <!-- ============ DMS IMPORT OVERLAY (Admin only) ============ -->
 <div class="dashboard-overlay" id="importOverlay">
   <div class="dashboard-header">
-    <div class="dashboard-title">Import from DMS Export</div>
+    <div class="dashboard-title">Bulk Upload — Excel</div>
     <button class="dash-close-btn" onclick="toggleImport()">&times;</button>
   </div>
   <div class="dashboard-body">
-    <div style="font-size:12px; color:var(--text-dim); margin-bottom:10px; line-height:1.5;">
-      Copy rows from your DMS export or Excel sheet and paste below.<br>
-      Expected column order: <b>Jobcard No, Vehicle No, Service Type, Intake Date</b> (tab-separated, one vehicle per line — this is exactly how a normal Excel copy-paste works).<br>
+    <div style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
+      Step 1: Download the template below.<br>
+      Step 2: Fill in your vehicle rows in Excel (don't change the column headers).<br>
+      Step 3: Upload the completed file here.<br>
       Existing Jobcard Numbers are skipped automatically, never overwritten.
     </div>
-    <textarea id="importTextarea" rows="10" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text); font-family:monospace;" placeholder="JC1001&#9;TN47AB1234&#9;Paid service&#9;2026-07-08
-JC1002&#9;TN47CD5678&#9;General repair&#9;2026-07-08"></textarea>
-    <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Import Rows</button>
+
+    <button class="btn-save" style="width:100%; background:var(--teal); color:#04211c;" onclick="downloadImportTemplate()">
+      &#128190; Download Excel Template
+    </button>
+
+    <div style="margin-top:16px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload completed file</div>
+    <input type="file" id="importFileInput" accept=".xlsx,.xls" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text);">
+
+    <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Upload &amp; Import</button>
     <div id="importResultBody" style="margin-top:14px;"></div>
   </div>
 </div>
@@ -1786,30 +1774,74 @@ async function shareReportToWhatsApp(){
 }
 
 /* =========================================================
-   DMS IMPORT (Admin only)
+   BULK UPLOAD — EXCEL (Admin only)
    ========================================================= */
 function toggleImport(){
   const overlay = document.getElementById('importOverlay');
   overlay.classList.toggle('show');
   document.getElementById('importResultBody').innerHTML = '';
+  document.getElementById('importFileInput').value = '';
+}
+
+// Generates a ready-to-fill .xlsx with the exact headers the import
+// expects, plus one example row showing the correct format — downloaded
+// directly in-browser via SheetJS, no server round-trip needed.
+function downloadImportTemplate(){
+  const headers = ["Jobcard No", "Vehicle No", "Service Type", "Model", "Intake Date"];
+  const exampleRow = ["JC1001", "TN47AB1234", "Paid Service", "Splendor Plus", todayDateStr()];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  ws['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:16},{wch:14}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Import");
+  XLSX.writeFile(wb, "AutoServe_Import_Template.xlsx");
+  showToast("Template downloaded");
 }
 
 async function submitImport(){
-  const raw = document.getElementById('importTextarea').value.trim();
-  if(!raw){
-    showToast("Paste some rows first", true);
+  const fileInput = document.getElementById('importFileInput');
+  const file = fileInput.files[0];
+  if(!file){
+    showToast("Choose a file first", true);
     return;
   }
 
-  // Parse tab-separated rows (standard Excel copy-paste format).
-  // Each line = one vehicle: JobID, VehicleNo, JobcardType, IntakeDate
-  const rows = raw.split('\n').map(line => line.split('\t').map(cell => cell.trim())).filter(r => r.length && r[0]);
-
   const btn = document.getElementById('importSubmitBtn');
   btn.disabled = true;
-  btn.textContent = "Importing…";
+  btn.textContent = "Reading file…";
 
   try{
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, {type:'array'});
+    const firstSheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[firstSheetName];
+    // header:1 gives raw rows as arrays, matching the template's column
+    // order exactly: Jobcard No, Vehicle No, Service Type, Model, Intake Date
+    const allRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+
+    // Skip the header row (row 0), and any fully blank rows
+    const dataRows = allRows.slice(1).filter(r => r && r.some(cell => String(cell).trim() !== ""));
+
+    if(dataRows.length === 0){
+      showToast("No data rows found in the file", true);
+      btn.disabled = false;
+      btn.textContent = "Upload & Import";
+      return;
+    }
+
+    // Reorder to match backend's expected [JobID, VehicleNo, JobcardType, IntakeDate]
+    // — Model is inserted as a 5th field the backend also accepts.
+    const rows = dataRows.map(r => [
+      String(r[0]||"").trim(),
+      String(r[1]||"").trim(),
+      String(r[2]||"").trim(),
+      String(r[4]||"").trim(),
+      String(r[3]||"").trim() // Model passed as 5th element
+    ]);
+
+    btn.textContent = "Importing…";
+
     const res = await fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -1822,7 +1854,7 @@ async function submitImport(){
 
     if(data.success){
       showToast(`Imported ${data.imported} vehicle${data.imported!==1?'s':''}`);
-      document.getElementById('importTextarea').value = '';
+      fileInput.value = '';
       const resultBody = document.getElementById('importResultBody');
       if(data.skipped && data.skipped.length){
         resultBody.innerHTML = `
@@ -1837,10 +1869,11 @@ async function submitImport(){
       showToast(data.message || "Import failed", true);
     }
   } catch(err){
-    showToast("Connection error: " + err.message, true);
+    showToast("Could not read file: " + err.message, true);
+    console.error('[submitImport] failed', err);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Import Rows";
+    btn.textContent = "Upload & Import";
   }
 }
 
