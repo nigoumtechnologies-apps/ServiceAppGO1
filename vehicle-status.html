@@ -642,6 +642,14 @@
       <input type="text" id="newVehicleNo" placeholder="TN 45 AB 1234" style="text-transform:uppercase;">
     </div>
     <div class="modal-field">
+      <label>Customer Name <span style="color:var(--orange);">*</span></label>
+      <input type="text" id="newCustomerName" placeholder="Customer name">
+    </div>
+    <div class="modal-field">
+      <label>Mobile Number <span style="color:var(--orange);">*</span></label>
+      <input type="tel" id="newPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile — needed for delivery feedback message">
+    </div>
+    <div class="modal-field">
       <label>Model</label>
       <select id="newModel">
         <option value="">Select model</option>
@@ -1348,6 +1356,8 @@ async function tickAdvance(jobId, newStatus){
 function openAddModal(){
   document.getElementById('newJobId').value = '';
   document.getElementById('newVehicleNo').value = '';
+  document.getElementById('newCustomerName').value = '';
+  document.getElementById('newPhone').value = '';
   document.getElementById('newModel').value = '';
   document.getElementById('newJobcardType').value = '';
   document.getElementById('newMechanic').value = '';
@@ -1372,6 +1382,8 @@ async function submitNewVehicle(){
 
   const jobId = document.getElementById('newJobId').value.trim();
   const vehicleNo = document.getElementById('newVehicleNo').value.trim().toUpperCase();
+  const customerName = document.getElementById('newCustomerName').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
   const model = document.getElementById('newModel').value;
   const intakeDate = document.getElementById('newIntakeDate').value;
   const jobcardType = document.getElementById('newJobcardType').value;
@@ -1387,6 +1399,14 @@ async function submitNewVehicle(){
     showToast("Vehicle number required", true);
     return;
   }
+  if(!customerName){
+    showToast("Customer name is required", true);
+    return;
+  }
+  if(!phone || phone.length !== 10){
+    showToast("A valid 10-digit mobile number is required (needed for delivery feedback message)", true);
+    return;
+  }
 
   const saveBtn = document.querySelector('.btn-save');
   isSubmitting = true;
@@ -1396,7 +1416,7 @@ async function submitNewVehicle(){
 
   const params = new URLSearchParams({
     action: 'addJob',
-    jobId, vehicleNo, model, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
+    jobId, vehicleNo, customerName, phone, model, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
     username: currentUser ? currentUser.username : ''
   });
 
@@ -1413,8 +1433,8 @@ async function submitNewVehicle(){
       vehicles.push({
         JobID: jobId,
         VehicleNo: vehicleNo,
-        CustomerName: "",
-        Phone: "",
+        CustomerName: customerName,
+        Phone: phone,
         IntakeDate: intakeDate,
         JobcardType: jobcardType,
         Model: model,
@@ -1787,11 +1807,11 @@ function toggleImport(){
 // expects, plus one example row showing the correct format — downloaded
 // directly in-browser via SheetJS, no server round-trip needed.
 function downloadImportTemplate(){
-  const headers = ["Jobcard No", "Vehicle No", "Service Type", "Model", "Intake Date"];
-  const exampleRow = ["JC1001", "TN47AB1234", "Paid Service", "Splendor Plus", todayDateStr()];
+  const headers = ["Jobcard No", "Vehicle No", "Customer Name", "Mobile Number", "Service Type", "Model", "Intake Date"];
+  const exampleRow = ["JC1001", "TN47AB1234", "Ravi Kumar", "9876543210", "Paid Service", "Splendor Plus", todayDateStr()];
 
   const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  ws['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:16},{wch:14}];
+  ws['!cols'] = [{wch:12},{wch:16},{wch:18},{wch:14},{wch:16},{wch:16},{wch:14}];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Import");
@@ -1817,7 +1837,8 @@ async function submitImport(){
     const firstSheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[firstSheetName];
     // header:1 gives raw rows as arrays, matching the template's column
-    // order exactly: Jobcard No, Vehicle No, Service Type, Model, Intake Date
+    // order exactly: Jobcard No, Vehicle No, Customer Name, Mobile Number,
+    // Service Type, Model, Intake Date
     const allRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
 
     // Skip the header row (row 0), and any fully blank rows
@@ -1830,14 +1851,16 @@ async function submitImport(){
       return;
     }
 
-    // Reorder to match backend's expected [JobID, VehicleNo, JobcardType, IntakeDate]
-    // — Model is inserted as a 5th field the backend also accepts.
+    // Reorder to match backend's expected row shape:
+    // [JobID, VehicleNo, JobcardType, Model, IntakeDate, CustomerName, Phone]
     const rows = dataRows.map(r => [
-      String(r[0]||"").trim(),
-      String(r[1]||"").trim(),
-      String(r[2]||"").trim(),
-      String(r[4]||"").trim(),
-      String(r[3]||"").trim() // Model passed as 5th element
+      String(r[0]||"").trim(),                 // Jobcard No
+      String(r[1]||"").trim().toUpperCase(),    // Vehicle No
+      String(r[4]||"").trim(),                  // Service Type
+      String(r[5]||"").trim(),                  // Model
+      String(r[6]||"").trim(),                  // Intake Date
+      String(r[2]||"").trim(),                  // Customer Name
+      String(r[3]||"").trim()                   // Mobile Number
     ]);
 
     btn.textContent = "Importing…";
