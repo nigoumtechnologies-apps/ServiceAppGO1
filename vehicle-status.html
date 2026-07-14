@@ -458,7 +458,7 @@
       <div class="user-chip">
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
-        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Bulk Upload (Excel)" style="display:none;">&#128229;</button>
+        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Bulk Upload (Excel)" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -1566,6 +1566,9 @@ function renderDashboard(){
 
   const body = document.getElementById('dashboardBody');
   body.innerHTML = `
+    <button class="btn-save" style="width:100%; margin-bottom:16px; background:#6a4fb8; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;" onclick="toggleDashboard(); toggleImport();">
+      &#128229; Bulk Upload — Excel
+    </button>
     <div style="font-size:12px; color:var(--text-faint); margin-bottom:14px;">Showing: ${rangeLabel}</div>
     <div class="stat-grid">
       <div class="stat-card total"><div class="stat-value">${inRange.length}</div><div class="stat-label">Total Vehicles</div></div>
