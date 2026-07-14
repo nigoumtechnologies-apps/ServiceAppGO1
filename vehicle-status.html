@@ -1819,6 +1819,60 @@ function downloadImportTemplate(){
   showToast("Template downloaded");
 }
 
+// Forces any date value coming out of an uploaded Excel file into a
+// consistent "yyyy-MM-dd" string, regardless of how the source cell
+// was formatted. Handles three cases:
+//   1. Already correct text like "2026-07-14" — passed through as-is
+//   2. Locale-formatted text like "7/14/26" or "14/7/2026" — parsed
+//      and reformatted
+//   3. Excel serial date numbers (e.g. 46213) — converted via SheetJS's
+//      own date parser, which is the most reliable path when available
+function normalizeExcelDate(value){
+  if(value === undefined || value === null || value === "") return todayDateStr();
+
+  const raw = String(value).trim();
+
+  // Case 1: already yyyy-MM-dd (or yyyy-MM-dd with time attached)
+  if(/^\d{4}-\d{2}-\d{2}/.test(raw)){
+    return raw.slice(0,10);
+  }
+
+  // Case 3: pure number — Excel serial date. SheetJS ships a helper
+  // for exactly this conversion.
+  if(/^\d+(\.\d+)?$/.test(raw)){
+    const parsed = XLSX.SSF.parse_date_code(Number(raw));
+    if(parsed){
+      const pad = n => String(n).padStart(2,'0');
+      return `${parsed.y}-${pad(parsed.m)}-${pad(parsed.d)}`;
+    }
+  }
+
+  // Case 2: locale date text like "7/14/26", "14/7/2026", "7-14-2026"
+  const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(match){
+    let [, part1, part2, year] = match;
+    if(year.length === 2) year = (Number(year) < 50 ? '20' : '19') + year;
+    // Excel/US locale exports are typically M/D/YY — treat first number
+    // as month when it's <=12, matching the template's own example
+    // format and what Excel produces by default on most Indian systems
+    // (which usually inherit US-style short date unless changed).
+    let month = Number(part1), day = Number(part2);
+    if(month > 12 && day <= 12){ [month, day] = [day, month]; } // swap if clearly D/M
+    const pad = n => String(n).padStart(2,'0');
+    return `${year}-${pad(month)}-${pad(day)}`;
+  }
+
+  // Fallback: let the browser's Date parser take a shot; if that also
+  // fails, default to today rather than saving a broken date string.
+  const asDate = new Date(raw);
+  if(!isNaN(asDate)){
+    const pad = n => String(n).padStart(2,'0');
+    return `${asDate.getFullYear()}-${pad(asDate.getMonth()+1)}-${pad(asDate.getDate())}`;
+  }
+
+  return todayDateStr();
+}
+
 async function submitImport(){
   const fileInput = document.getElementById('importFileInput');
   const file = fileInput.files[0];
@@ -1853,12 +1907,19 @@ async function submitImport(){
 
     // Reorder to match backend's expected row shape:
     // [JobID, VehicleNo, JobcardType, Model, IntakeDate, CustomerName, Phone]
+    //
+    // Intake Date needs special handling: Excel stores dates as its own
+    // internal format, and depending on how the source cell was
+    // formatted, SheetJS can hand back locale strings like "7/14/26"
+    // instead of "2026-07-14". normalizeExcelDate() below forces every
+    // possible input shape into a consistent yyyy-MM-dd string before
+    // it's ever sent to the backend.
     const rows = dataRows.map(r => [
       String(r[0]||"").trim(),                 // Jobcard No
       String(r[1]||"").trim().toUpperCase(),    // Vehicle No
       String(r[4]||"").trim(),                  // Service Type
       String(r[5]||"").trim(),                  // Model
-      String(r[6]||"").trim(),                  // Intake Date
+      normalizeExcelDate(r[6]),                 // Intake Date
       String(r[2]||"").trim(),                  // Customer Name
       String(r[3]||"").trim()                   // Mobile Number
     ]);
