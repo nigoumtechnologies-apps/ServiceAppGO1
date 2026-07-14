@@ -530,23 +530,17 @@
 <!-- ============ DMS IMPORT OVERLAY (Admin only) ============ -->
 <div class="dashboard-overlay" id="importOverlay">
   <div class="dashboard-header">
-    <div class="dashboard-title">Bulk Upload — Excel</div>
+    <div class="dashboard-title">Bulk Upload — DMS Export</div>
     <button class="dash-close-btn" onclick="toggleImport()">&times;</button>
   </div>
   <div class="dashboard-body">
     <div style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-      Step 1: Download the template below.<br>
-      Step 2: Fill in your vehicle rows in Excel (don't change the column headers).<br>
-      Step 3: Upload the completed file here.<br>
+      Upload the Job Card export file directly from your DMS — no reformatting needed.<br><br>
       Existing Jobcard Numbers are skipped automatically, never overwritten.
     </div>
 
-    <button class="btn-save" style="width:100%; background:var(--teal); color:#04211c;" onclick="downloadImportTemplate()">
-      &#128190; Download Excel Template
-    </button>
-
-    <div style="margin-top:16px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload completed file</div>
-    <input type="file" id="importFileInput" accept=".xlsx,.xls" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text);">
+    <div style="margin-top:6px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload DMS export file</div>
+    <input type="file" id="importFileInput" accept=".csv,.txt,.xlsx,.xls" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text);">
 
     <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Upload &amp; Import</button>
     <div id="importResultBody" style="margin-top:14px;"></div>
@@ -1807,21 +1801,6 @@ function toggleImport(){
 }
 
 // Generates a ready-to-fill .xlsx with the exact headers the import
-// expects, plus one example row showing the correct format — downloaded
-// directly in-browser via SheetJS, no server round-trip needed.
-function downloadImportTemplate(){
-  const headers = ["Jobcard No", "Vehicle No", "Customer Name", "Mobile Number", "Service Type", "Model", "Intake Date"];
-  const exampleRow = ["JC1001", "TN47AB1234", "Ravi Kumar", "9876543210", "Paid Service", "Splendor Plus", todayDateStr()];
-
-  const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
-  ws['!cols'] = [{wch:12},{wch:16},{wch:18},{wch:14},{wch:16},{wch:16},{wch:14}];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Import");
-  XLSX.writeFile(wb, "AutoServe_Import_Template.xlsx");
-  showToast("Template downloaded");
-}
-
 // Forces any date value coming out of an uploaded Excel file into a
 // consistent "yyyy-MM-dd" string, regardless of how the source cell
 // was formatted. Handles three cases:
@@ -1876,6 +1855,38 @@ function normalizeExcelDate(value){
   return todayDateStr();
 }
 
+// Parses the DMS export's own date format: "14/07/2026 01:50:00 PM"
+// (DD/MM/YYYY hh:mm:ss AM/PM) into our "yyyy-MM-dd" string. Falls back
+// to normalizeExcelDate's broader handling for anything else, in case
+// a future export or manually-typed cell uses a different shape.
+function normalizeDmsDate(value){
+  if(!value) return todayDateStr();
+  const raw = String(value).trim().replace(/^"|"$/g, '');
+
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(match){
+    const [, day, month, year] = match;
+    const pad = n => String(n).padStart(2,'0');
+    return `${year}-${pad(month)}-${pad(day)}`;
+  }
+
+  return normalizeExcelDate(raw);
+}
+
+// Extracts just the last numeric segment from a full DMS Job Card
+// number, e.g. "21643-02-RJC-0726-2454" -> "2454" — this becomes our
+// app's Jobcard Number, matching the short numbering staff already use.
+function extractJobIdFromDmsNumber(fullJobCardNo){
+  const cleaned = String(fullJobCardNo||"").trim().replace(/^"|"$/g, '');
+  const parts = cleaned.split('-');
+  return parts[parts.length-1] || cleaned;
+}
+
+// Strips surrounding quotes the DMS export wraps every field in.
+function stripQuotes(value){
+  return String(value||"").trim().replace(/^"|"$/g, '');
+}
+
 async function submitImport(){
   const fileInput = document.getElementById('importFileInput');
   const file = fileInput.files[0];
@@ -1889,17 +1900,38 @@ async function submitImport(){
   btn.textContent = "Reading file…";
 
   try{
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, {type:'array'});
-    const firstSheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[firstSheetName];
-    // header:1 gives raw rows as arrays, matching the template's column
-    // order exactly: Jobcard No, Vehicle No, Customer Name, Mobile Number,
-    // Service Type, Model, Intake Date
-    const allRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+    const fileName = file.name.toLowerCase();
+    const isDmsTextExport = fileName.endsWith('.csv') || fileName.endsWith('.txt');
 
-    // Skip the header row (row 0), and any fully blank rows
-    const dataRows = allRows.slice(1).filter(r => r && r.some(cell => String(cell).trim() !== ""));
+    let dataRows;
+
+    if(isDmsTextExport){
+      // DMS exports this as UTF-16 (little-endian), tab-separated, with
+      // every field wrapped in quotes — very different from a normal
+      // CSV. Reading as UTF-16 text directly avoids needing SheetJS for
+      // this path at all.
+      const arrayBuffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('utf-16le');
+      let text = decoder.decode(arrayBuffer);
+      text = text.replace(/^\uFEFF/, ''); // strip BOM if present
+
+      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+      // First line is the DMS's own header row — skip it, we know the
+      // fixed column positions already (see mapping below).
+      dataRows = lines.slice(1).map(line => line.split('\t').map(stripQuotes));
+    } else {
+      // Fallback path: a plain .xlsx/.xls file, read via SheetJS.
+      // Kept in case anyone uploads a manually-built spreadsheet instead
+      // of the raw DMS export — same fixed column mapping applies.
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, {type:'array'});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const allRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+      dataRows = allRows.slice(1).map(r => r.map(cell => String(cell||"")));
+    }
+
+    // Drop fully blank rows
+    dataRows = dataRows.filter(r => r && r.some(cell => String(cell).trim() !== ""));
 
     if(dataRows.length === 0){
       showToast("No data rows found in the file", true);
@@ -1908,24 +1940,33 @@ async function submitImport(){
       return;
     }
 
-    // Reorder to match backend's expected row shape:
-    // [JobID, VehicleNo, JobcardType, Model, IntakeDate, CustomerName, Phone]
-    //
-    // Intake Date needs special handling: Excel stores dates as its own
-    // internal format, and depending on how the source cell was
-    // formatted, SheetJS can hand back locale strings like "7/14/26"
-    // instead of "2026-07-14". normalizeExcelDate() below forces every
-    // possible input shape into a consistent yyyy-MM-dd string before
-    // it's ever sent to the backend.
-    const rows = dataRows.map(r => [
-      String(r[0]||"").trim(),                 // Jobcard No
-      String(r[1]||"").trim().toUpperCase(),    // Vehicle No
-      String(r[4]||"").trim(),                  // Service Type
-      String(r[5]||"").trim(),                  // Model
-      normalizeExcelDate(r[6]),                 // Intake Date
-      String(r[2]||"").trim(),                  // Customer Name
-      String(r[3]||"").trim()                   // Mobile Number
-    ]);
+    // DMS export column positions (0-indexed), confirmed against the
+    // actual file format:
+    //   0 Job Card #        -> becomes JobID (last segment only)
+    //   1 Reg #              -> Vehicle No
+    //   2 First Name         -> combined with Last Name for Customer Name
+    //   3 Last Name
+    //   4 Mobile #           -> Phone
+    //   5 Job Card Open Date -> Intake Date
+    //   6 Job Card Type      -> Service Type
+    //   7 Model
+    //   8 Estimated Delivery Time — and everything after column I (index 8)
+    //     is intentionally ignored, per requirement.
+    const rows = dataRows.map(r => {
+      const firstName = stripQuotes(r[2]);
+      const lastName = stripQuotes(r[3]);
+      const customerName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+      return [
+        extractJobIdFromDmsNumber(r[0]),              // Jobcard No (short form)
+        stripQuotes(r[1]).toUpperCase(),               // Vehicle No
+        stripQuotes(r[6]),                             // Service Type
+        stripQuotes(r[7]),                             // Model
+        normalizeDmsDate(r[5]),                        // Intake Date
+        customerName,                                  // Customer Name (First + Last)
+        stripQuotes(r[4])                              // Mobile Number
+      ];
+    });
 
     btn.textContent = "Importing…";
 
