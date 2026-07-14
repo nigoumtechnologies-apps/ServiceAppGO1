@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  THIS IS A COPY of vehicle-status.html, used only for the
+  optional "open inside Google Sheets" Sidebar/Dialog feature.
+
+  The MAIN app staff use daily lives on GitHub Pages — this file
+  does NOT auto-update when that one changes. If you edit
+  vehicle-status.html for a new feature or fix, copy the same
+  changes into this file too (paste over Apps Script's
+  AutoServeSidebar HTML file), or the Sidebar version will drift
+  out of date compared to the real app.
+  ============================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AutoServe — Vehicle Status</title>
+<style>
+  :root{
+    --page-bg:#f2f3f5;
+    --charcoal:#ffffff;
+    --charcoal-2:#f7f8fa;
+    --steel:#eef0f3;
+    --steel-line:#d7dbe0;
+    --orange:#ff6b1a;
+    --orange-dim:#ffe4d1;
+    --teal:#1fa693;
+    --teal-dim:#d7f5ef;
+    --amber:#e0a325;
+    --amber-dim:#fbedd2;
+    --text:#111418;
+    --text-dim:#3a4148;
+    --text-faint:#6b7580;
+
+    /* Card colors — one distinct look per stage */
+    --card-intake-bg:#fff8e1;
+    --card-intake-border:#e0a325;
+    --card-intake-text:#5c4300;
+    --card-start-bg:#fff1e8;
+    --card-start-border:#ff6b1a;
+    --card-start-text:#7a2e00;
+    --card-finished-bg:#e8f8f2;
+    --card-finished-border:#1fa693;
+    --card-finished-text:#0a4438;
+    --card-delivered-bg:#eef0f3;
+    --card-delivered-border:#c3c8cf;
+    --card-delivered-text:#111418;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--page-bg); color:var(--text);
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+    min-height:100vh; -webkit-tap-highlight-color:transparent;
+  }
+  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; background:var(--page-bg);}
+  input, select, button{font-family:inherit;}
+
+  /* ---------------- LOGIN SCREEN ---------------- */
+  .login-screen{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; gap:22px;
+  }
+  .login-brand{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:8px;}
+  .login-mark{
+    width:56px; height:56px; background:var(--orange);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:22px; color:var(--charcoal);
+  }
+  .login-title{font-size:22px; font-weight:800;}
+  .login-sub{font-size:12px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase;}
+  .login-form{width:100%; max-width:320px; display:flex; flex-direction:column; gap:12px;}
+  .field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
+  .field input{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line);
+    border-radius:10px; padding:13px 14px; font-size:16px; color:var(--text); outline:none;
+  }
+  .field input:focus{border-color:var(--orange);}
+  .btn-primary{
+    width:100%; background:var(--orange); color:#2e1500; border:none; border-radius:10px;
+    padding:14px; font-size:15px; font-weight:800; cursor:pointer; margin-top:6px;
+  }
+  .btn-primary:active{transform:scale(0.98);}
+  .login-error{color:var(--orange); font-size:12.5px; text-align:center; min-height:16px;}
+
+  /* ---------------- HEADER ---------------- */
+  header{background:var(--charcoal-2); padding:12px 16px 12px; border-bottom:2px solid var(--orange); position:sticky; top:0; z-index:20;}
+  .brand{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .brand-left{display:flex; align-items:center; gap:8px;}
+  .brand-mark{
+    width:28px; height:28px; background:var(--orange);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:13px; color:var(--charcoal);
+  }
+  .brand-name{font-size:17px; font-weight:800;}
+  .brand-sub{font-size:10px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase;}
+  .user-chip{display:flex; align-items:center; gap:8px;}
+  .user-info{text-align:right;}
+  .user-info .uname{font-size:12px; font-weight:700; color:var(--text);}
+  .user-info .urole{font-size:9.5px; color:var(--text-faint); text-transform:uppercase;}
+  .logout-btn{background:none; border:none; color:var(--text-faint); font-size:18px; cursor:pointer; padding:4px;}
+  .refresh-btn{background:none; border:none; color:var(--teal); font-size:19px; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;}
+  .refresh-btn.spinning{animation:spin 0.7s linear infinite;}
+  @keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .dash-btn{background:none; border:none; color:var(--amber); font-size:17px; cursor:pointer; padding:4px;}
+  .report-btn{background:none; border:none; color:var(--teal); font-size:17px; cursor:pointer; padding:4px;}
+  .import-btn{background:none; border:none; color:#6a4fb8; font-size:17px; cursor:pointer; padding:4px;}
+
+  /* ---------------- DATE RANGE BAR ---------------- */
+  .date-range-bar{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .date-range-input{
+    flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
+  }
+  .date-range-input:focus{border-color:var(--orange);}
+  .date-range-sep{font-size:11px; color:var(--text-faint);}
+  .date-range-clear{background:var(--steel); border:none; color:var(--text-faint); font-size:16px; border-radius:8px; padding:6px 10px; cursor:pointer;}
+
+  /* ---------------- DASHBOARD OVERLAY ---------------- */
+  .dashboard-overlay{
+    position:fixed; inset:0; background:var(--charcoal); z-index:60; display:none;
+    flex-direction:column; max-width:480px; margin:0 auto;
+  }
+  .dashboard-overlay.show{display:flex;}
+  .dashboard-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px; border-bottom:2px solid var(--orange); background:var(--charcoal-2);
+  }
+  .dashboard-title{font-size:17px; font-weight:800;}
+  .dash-close-btn{background:none; border:none; color:var(--text-dim); font-size:24px; cursor:pointer; padding:2px 8px;}
+  .dashboard-body{flex:1; overflow-y:auto; padding:16px;}
+
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
+  .stat-card{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .stat-value{font-size:26px; font-weight:900; margin-bottom:4px;}
+  .stat-label{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px;}
+  .stat-card.intake .stat-value{color:var(--amber);}
+  .stat-card.start .stat-value{color:var(--orange);}
+  .stat-card.finished .stat-value{color:var(--teal);}
+  .stat-card.delivered .stat-value{color:var(--text-dim);}
+  .stat-card.total .stat-value{color:var(--text);}
+  .stat-card.avg .stat-value{color:var(--teal); font-size:20px;}
+
+  .dash-section-title{font-size:13px; font-weight:700; color:var(--text-dim); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.5px;}
+  .mech-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:10px 14px; margin-bottom:8px; font-size:13px;
+  }
+  .mech-row .mech-count{font-weight:800; color:var(--orange);}
+
+  .supervisor-group{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .supervisor-group-name{
+    font-size:13.5px; font-weight:800; color:#6a4fb8; display:flex;
+    justify-content:space-between; align-items:center; margin-bottom:8px;
+    padding-bottom:8px; border-bottom:1px solid var(--steel-line);
+  }
+  .supervisor-group-row{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; padding:5px 0; color:var(--text-dim);
+  }
+
+  /* ---------------- DAILY REPORT CARD (styled for WhatsApp image export) ---------------- */
+  .report-card{
+    background:#ffffff; color:#1c2024; border-radius:10px; padding:16px;
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+  }
+  .report-title{font-size:15px; font-weight:800; color:#1c2024; margin-bottom:4px;}
+  .report-date{font-size:11px; color:#6b7580; margin-bottom:14px;}
+  .report-section-title{font-size:12.5px; font-weight:800; color:#1c2024; margin:16px 0 8px; border-bottom:2px solid #1c2024; padding-bottom:4px;}
+  .report-table{width:100%; border-collapse:collapse; font-size:11.5px;}
+  .report-table th{
+    text-align:left; padding:6px 8px; background:#f2f3f5; color:#1c2024;
+    border:1px solid #d5d8db; font-weight:700;
+  }
+  .report-table td{padding:6px 8px; border:1px solid #d5d8db; color:#1c2024;}
+  .report-table td.num{text-align:center; font-weight:700;}
+  .report-empty-note{font-size:11px; color:#9aa4ab; padding:10px 0; text-align:center;}
+  .report-absent-cols{display:flex; gap:12px;}
+  .report-absent-cols > div{flex:1;}
+
+  /* ---------------- VEHICLE HISTORY MODAL ---------------- */
+  .history-stage{
+    display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--steel-line);
+  }
+  .history-stage:last-child{border-bottom:none;}
+  .history-dot{
+    width:10px; height:10px; border-radius:50%; margin-top:4px; flex:0 0 10px;
+    background:var(--steel-line);
+  }
+  .history-stage.done .history-dot{background:var(--teal);}
+  .history-stage-label{font-size:13px; font-weight:700; color:var(--text);}
+  .history-stage-time{font-size:12px; color:var(--text-faint); margin-top:2px;}
+  .history-meta-row{display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-dim); padding:6px 0; border-bottom:1px solid var(--steel-line);}
+  .history-meta-row b{color:var(--text);}
+
+  .search-wrap{position:relative; margin-bottom:0;}
+  .search-input{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 40px 12px 38px; font-size:15px; color:var(--text); outline:none;
+  }
+  .search-input::placeholder{color:var(--text-faint);}
+  .search-input:focus{border-color:var(--orange);}
+  .search-icon{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:16px;}
+  .search-clear{position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:18px; background:none; border:none; display:none; padding:4px; cursor:pointer;}
+  .search-clear.show{display:block;}
+
+  /* ---------------- FILTER CHIPS ---------------- */
+  .filters{display:flex; gap:8px; padding:12px 16px; overflow-x:auto; background:var(--charcoal-2); border-bottom:1px solid var(--steel-line);}
+  .filters::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; padding:7px 13px; border-radius:20px; font-size:12.5px; font-weight:700;
+    border:1.5px solid var(--steel-line); background:var(--steel); color:var(--text-dim);
+    white-space:nowrap; display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+  }
+  .chip .dot{width:7px; height:7px; border-radius:50%; background:currentColor;}
+  .chip.active{color:var(--charcoal); border-color:transparent;}
+  .chip[data-status="all"].active{background:var(--text); color:var(--charcoal);}
+  .chip[data-status="intake_today"]{color:var(--amber);}
+  .chip[data-status="intake_today"].active{background:var(--amber); color:#2a2108;}
+  .chip[data-status="intake_previous"]{color:#b8860b;}
+  .chip[data-status="intake_previous"].active{background:#b8860b; color:#2a2108;}
+  .chip[data-status="start"]{color:var(--orange);}
+  .chip[data-status="start"].active{background:var(--orange); color:#2e1500;}
+  .chip[data-status="finished"]{color:var(--teal);}
+  .chip[data-status="finished"].active{background:var(--teal); color:#04211c;}
+  .chip[data-status="delivered"]{color:var(--text-faint);}
+  .chip[data-status="delivered"].active{background:var(--text-faint); color:var(--charcoal);}
+  .chip[data-status="my_assigned"]{color:#6a4fb8;}
+  .chip[data-status="my_assigned"].active{background:#6a4fb8; color:#fff;}
+  .chip-count{font-weight:900;}
+
+  /* ---------------- FAB (Add Vehicle) ---------------- */
+  .fab{
+    position:fixed; bottom:20px; right:20px; z-index:30;
+    width:56px; height:56px; border-radius:50%; background:var(--orange); color:#2e1500;
+    border:none; font-size:26px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,0.5); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fab:active{transform:scale(0.94);}
+
+  /* ---------------- LIST ---------------- */
+  .list{flex:1; padding:12px; padding-bottom:90px; display:flex; flex-direction:column; gap:10px;}
+  .empty-state{text-align:center; padding:60px 20px; color:var(--text-faint);}
+  .empty-state .icon{font-size:32px; margin-bottom:10px; opacity:0.5;}
+  .empty-state p{font-size:13px;}
+
+  .card{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-left:4px solid var(--steel-line);
+    border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;
+  }
+  .card[data-status="intake"]{
+    background:var(--card-intake-bg); border-color:var(--card-intake-border); border-left-color:var(--card-intake-border);
+  }
+  .card[data-status="start"]{
+    background:var(--card-start-bg); border-color:var(--card-start-border); border-left-color:var(--card-start-border);
+  }
+  .card[data-status="finished"]{
+    background:var(--card-finished-bg); border-color:var(--card-finished-border); border-left-color:var(--card-finished-border);
+  }
+  .card[data-status="delivered"]{
+    background:var(--card-delivered-bg); border-color:var(--card-delivered-border); border-left-color:var(--card-delivered-border);
+  }
+
+  .card[data-status="intake"] .veh-no, .card[data-status="intake"] .cust-name{color:var(--card-intake-text);}
+  .card[data-status="start"] .veh-no, .card[data-status="start"] .cust-name{color:var(--card-start-text);}
+  .card[data-status="finished"] .veh-no, .card[data-status="finished"] .cust-name{color:var(--card-finished-text);}
+  .card[data-status="delivered"] .veh-no, .card[data-status="delivered"] .cust-name{color:var(--card-delivered-text);}
+
+  .card[data-status="intake"] .card-meta{color:#8a6d00;}
+  .card[data-status="start"] .card-meta{color:#a34400;}
+  .card[data-status="finished"] .card-meta{color:#0d6b56;}
+  .card[data-status="delivered"] .card-meta{color:var(--text-faint);}
+
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .veh-no{font-size:17px; font-weight:800; letter-spacing:0.5px; font-family:'Consolas', monospace;}
+  .cust-name{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+  .status-tag{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; padding:4px 9px; border-radius:6px; white-space:nowrap;}
+  .status-tag[data-status="intake"]{background:var(--card-intake-border); color:#fff;}
+  .status-tag[data-status="start"]{background:var(--card-start-border); color:#fff;}
+  .status-tag[data-status="finished"]{background:var(--card-finished-border); color:#fff;}
+  .status-tag[data-status="delivered"]{background:var(--steel); color:var(--text);}
+
+  .card-meta{display:flex; gap:12px; font-size:11.5px; color:var(--text-faint); flex-wrap:wrap;}
+  .card-meta span{display:flex; align-items:center; gap:4px;}
+
+  .mechanic-row{display:flex; align-items:center; gap:8px;}
+
+  /* ---------------- SIMPLE TICK CARD (Supervisor/Mechanic view) ---------------- */
+  .simple-card{gap:0; padding:0; cursor:pointer; overflow:hidden;}
+  /* Card body colors by Service Type — Free Service = Blue, General
+     Repair = Pink, everything else (Paid Service etc.) = cream/yellow.
+     Matches the reference design's tan/cream card with orange pill
+     badges for Model and Service Type. */
+  .simple-card.type-blue{background:#dceefb; border-color:#4fa3e0;}
+  .simple-card.type-pink{background:#fbdcec; border-color:#e05a9f;}
+  .simple-card.type-yellow{background:#fdf1cd; border-color:#c68a00;}
+
+  .simple-card-body{padding:10px 12px 8px;}
+  .simple-card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .simple-card-top .veh-no{font-size:15px; font-weight:900; color:#1c1c1c; letter-spacing:0.3px;}
+  .jobid-badge{
+    font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:6px; white-space:nowrap;
+    background:#2563eb; color:#fff;
+  }
+  .simple-card-pills{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+  .pill-badge{
+    font-size:10px; font-weight:800; padding:3px 10px; border-radius:5px;
+    background:#e0781f; color:#fff; letter-spacing:0.3px;
+  }
+
+  /* 5-column stage grid — Intake / Assigned / Start / Completed / Delivered,
+     each with its own checkbox and timestamp underneath, matching the
+     reference design's dark navy strip exactly. */
+  .simple-stage-grid{
+    display:grid; grid-template-columns:repeat(5,1fr);
+    background:#1a1440; padding:8px 4px 10px;
+  }
+  .simple-stage-col{display:flex; flex-direction:column; align-items:center; gap:4px; padding:0 2px;}
+  .simple-stage-label{font-size:8.5px; font-weight:800; color:#c9c3e8; text-transform:uppercase; letter-spacing:0.3px; text-align:center;}
+  .simple-stage-box{
+    width:22px; height:22px; border-radius:5px; border:2px solid #4a4470;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;
+    background:transparent; color:#fff;
+  }
+  .simple-stage-box.done{background:#22c55e; border-color:#22c55e;}
+  .simple-stage-box.clickable{border-color:#f5a524; cursor:pointer;}
+  .simple-stage-time{font-size:7.5px; color:#a39cd6; text-align:center; line-height:1.3; min-height:18px;}
+  .simple-stage-time.done-time{color:#8ce0a8;}
+
+  .simple-mechanic-inline{
+    width:100%; background:#fff; border:1.5px solid #4a4470; border-radius:5px;
+    padding:2px 3px; font-size:8px; font-weight:700; color:#1c2024; outline:none;
+  }
+
+  .simple-tick-cell.clickable-cell{background:rgba(255,255,255,0.85); cursor:pointer;}
+  .simple-tick-cell.locked-cell{opacity:0.45; cursor:not-allowed;}
+
+  .mini-tick{
+    width:18px; height:18px; flex:0 0 18px; border-radius:4px;
+    border:2px solid rgba(0,0,0,0.3); display:flex; align-items:center;
+    justify-content:center; font-size:13px; font-weight:900; color:#fff;
+  }
+  .mini-tick.done{background:var(--teal); border-color:var(--teal);}
+  .tick-mini-label{flex:1;}
+  .mini-select{
+    flex:1; background:#1c2024; color:#fff; border:1.5px solid rgba(0,0,0,0.3);
+    border-radius:6px; padding:6px 8px; font-size:12.5px; outline:none;
+  }
+  .tick-list{display:flex; flex-direction:column; gap:6px;}
+  .tick-row{
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-radius:8px; font-size:13.5px; font-weight:600;
+    background:rgba(0,0,0,0.15);
+  }
+  .tick-row.done{background:rgba(31,166,147,0.15); color:var(--card-finished-text, #0a4438);}
+  .tick-row.pending{background:rgba(255,107,26,0.12); cursor:pointer;}
+  .tick-row.locked{opacity:0.4; cursor:not-allowed;}
+  .tick-icon{font-size:18px; flex:0 0 20px;}
+  .tick-label{flex:1;}
+  .tick-sub{font-size:11.5px; opacity:0.75; font-weight:700;}
+  .mechanic-select{
+    flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
+  }
+  .mechanic-select:focus{border-color:var(--teal);}
+
+  .card-actions{display:flex; gap:8px; margin-top:2px;}
+  .btn-status{flex:1; padding:9px 6px; border-radius:8px; border:none; font-size:12px; font-weight:700; cursor:pointer; color:var(--text-faint); background:var(--steel);}
+  .btn-status:active{transform:scale(0.96);}
+  .btn-status.next{background:var(--orange); color:#2e1500;}
+  .btn-status.call{flex:0 0 42px; background:var(--steel); color:var(--text-dim); font-size:16px;}
+
+  /* ---------------- ADD VEHICLE MODAL ---------------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:40; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    width:100%; max-width:480px; background:var(--charcoal-2); border-radius:18px 18px 0 0;
+    padding:20px 18px 24px; max-height:88vh; overflow-y:auto;
+  }
+  .modal-handle{width:36px; height:4px; background:var(--steel-line); border-radius:4px; margin:0 auto 16px;}
+  .modal-title{font-size:17px; font-weight:800; margin-bottom:16px;}
+  .modal-field{margin-bottom:13px;}
+  .modal-row-2{display:flex; gap:10px;}
+  .modal-row-2 .modal-field{flex:1;}
+  .modal-field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
+  .modal-field input, .modal-field select{
+    width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
+    padding:12px 13px; font-size:15px; color:var(--text); outline:none;
+  }
+  .modal-field input:focus, .modal-field select:focus{border-color:var(--orange);}
+  .modal-actions{display:flex; gap:10px; margin-top:6px;}
+  .btn-cancel{flex:1; background:var(--steel); color:var(--text-dim); border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;}
+  .btn-save{flex:2; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:800; cursor:pointer;}
+
+  /* ---------------- TOAST / LOADING ---------------- */
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(100px);
+    background:var(--teal); color:#04211c; font-weight:700; font-size:13px;
+    padding:11px 20px; border-radius:30px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    transition:transform 0.25s ease; z-index:50; white-space:nowrap;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--orange); color:#2e1500;}
+
+  /* ---------------- CONFIRM DIALOG ---------------- */
+  .confirm-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:70; display:none;
+    align-items:center; justify-content:center; padding:24px;
+  }
+  .confirm-overlay.show{display:flex;}
+  .confirm-box{
+    background:var(--charcoal-2); border:1.5px solid var(--steel-line); border-radius:14px;
+    padding:22px 20px; max-width:340px; width:100%; box-shadow:0 12px 32px rgba(0,0,0,0.5);
+  }
+  .confirm-message{font-size:15px; font-weight:700; color:var(--text); text-align:center; margin-bottom:18px; line-height:1.4;}
+  .confirm-actions{display:flex; gap:10px;}
+  .confirm-no{flex:1; background:var(--steel); color:var(--text-dim); border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:700; cursor:pointer;}
+  .confirm-yes{flex:1; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:12px; font-size:14px; font-weight:800; cursor:pointer;}
+  .loading{text-align:center; padding:40px; color:var(--text-faint); font-size:13px;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-brand">
+    <div class="login-mark">AS</div>
+    <div class="login-title">AutoServe</div>
+    <div class="login-sub">Ayyappan Agency</div>
+  </div>
+  <div class="login-form">
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="loginUsername" autocomplete="off" placeholder="e.g. ravi">
+    </div>
+    <div class="field">
+      <label>PIN</label>
+      <input type="password" id="loginPin" inputmode="numeric" maxlength="6" placeholder="4-digit PIN">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Login</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="mainApp" style="display:none;">
+
+  <header>
+    <div class="brand">
+      <div class="brand-left">
+        <div class="brand-mark">AS</div>
+        <div>
+          <div class="brand-name">AutoServe</div>
+          <div class="brand-sub">Ayyappan Agency</div>
+        </div>
+      </div>
+      <div class="user-chip">
+        <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
+        <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
+        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Bulk Upload (Excel)" style="display:none;">&#128229;</button>
+        <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
+        <div class="user-info">
+          <div class="uname" id="userName">—</div>
+          <div class="urole" id="userRole">—</div>
+        </div>
+        <button class="logout-btn" onclick="logout()">&#10132;</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle number or jobcard no.">
+      <button class="search-clear" id="clearBtn">&times;</button>
+    </div>
+    <div class="date-range-bar">
+      <input type="date" class="date-range-input" id="filterFromDate" title="From date">
+      <span class="date-range-sep">to</span>
+      <input type="date" class="date-range-input" id="filterToDate" title="To date">
+      <button class="date-range-clear" id="dateRangeClearBtn" title="Clear date filter">&times;</button>
+    </div>
+  </header>
+
+  <div class="filters" id="filters">
+    <div class="chip active" data-status="all" id="allChip">All <span class="chip-count" id="count-all">0</span></div>
+    <div class="chip" data-status="intake_today"><span class="dot"></span>Today Intake <span class="chip-count" id="count-intake_today">0</span></div>
+    <div class="chip" data-status="intake_previous"><span class="dot"></span>Previous Intake <span class="chip-count" id="count-intake_previous">0</span></div>
+    <div class="chip" data-status="start" id="startChip"><span class="dot"></span>Working <span class="chip-count" id="count-start">0</span></div>
+    <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
+    <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
+    <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
+    <span id="supervisorChipsContainer" style="display:flex; gap:8px;"></span>
+  </div>
+
+  <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
+
+  <button class="fab" onclick="openAddModal()">+</button>
+</div>
+
+<!-- ============ DASHBOARD OVERLAY ============ -->
+<div class="dashboard-overlay" id="dashboardOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Dashboard Summary</div>
+    <button class="dash-close-btn" onclick="toggleDashboard()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="dashboardBody"></div>
+</div>
+
+<!-- ============ DAILY REPORT OVERLAY ============ -->
+<div class="dashboard-overlay" id="reportOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Daily Service Report</div>
+    <button class="dash-close-btn" onclick="toggleReport()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="reportControlsBody">
+    <div class="date-range-bar" style="margin-top:0;">
+      <input type="date" class="date-range-input" id="reportFromDate">
+      <span class="date-range-sep">to</span>
+      <input type="date" class="date-range-input" id="reportToDate">
+    </div>
+    <button class="btn-save" style="width:100%; margin-top:10px;" onclick="renderReport()">Refresh Report</button>
+
+    <div id="reportCard" style="margin-top:16px;"></div>
+
+    <button class="btn-save" id="reportShareBtn" style="width:100%; margin-top:16px; background:var(--teal); color:#04211c;" onclick="shareReportToWhatsApp()">
+      &#128241; Share Report on WhatsApp
+    </button>
+  </div>
+</div>
+
+<!-- ============ DMS IMPORT OVERLAY (Admin only) ============ -->
+<div class="dashboard-overlay" id="importOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Bulk Upload — Excel</div>
+    <button class="dash-close-btn" onclick="toggleImport()">&times;</button>
+  </div>
+  <div class="dashboard-body">
+    <div style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
+      Step 1: Download the template below.<br>
+      Step 2: Fill in your vehicle rows in Excel (don't change the column headers).<br>
+      Step 3: Upload the completed file here.<br>
+      Existing Jobcard Numbers are skipped automatically, never overwritten.
+    </div>
+
+    <button class="btn-save" style="width:100%; background:var(--teal); color:#04211c;" onclick="downloadImportTemplate()">
+      &#128190; Download Excel Template
+    </button>
+
+    <div style="margin-top:16px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload completed file</div>
+    <input type="file" id="importFileInput" accept=".xlsx,.xls" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text);">
+
+    <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Upload &amp; Import</button>
+    <div id="importResultBody" style="margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- ============ VEHICLE HISTORY MODAL ============ -->
+<div class="modal-overlay" id="historyModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="historyModalTitle">Vehicle History</div>
+    <div id="historyModalBody"></div>
+    <div class="modal-actions" id="historyAdminActions" style="display:none;">
+      <button class="btn-cancel" style="flex:1; background:#c0392b; color:#fff;" onclick="startDeleteJob()">Delete</button>
+      <button class="btn-save" style="flex:1;" onclick="openEditModal()">Edit</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" style="flex:1;" onclick="closeHistoryModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN EDIT JOB CARD MODAL ============ -->
+<div class="modal-overlay" id="editModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Jobcard — <span id="editModalJobId"></span></div>
+
+    <div class="modal-field">
+      <label>Vehicle Number</label>
+      <input type="text" id="editVehicleNo" style="text-transform:uppercase;">
+    </div>
+    <div class="modal-field">
+      <label>Model</label>
+      <select id="editModel"></select>
+    </div>
+    <div class="modal-field">
+      <label>Intake Date</label>
+      <input type="date" id="editIntakeDate">
+    </div>
+    <div class="modal-row-2">
+      <div class="modal-field">
+        <label>Est. Delivery Date</label>
+        <input type="date" id="editEstDeliveryDate">
+      </div>
+      <div class="modal-field">
+        <label>Est. Delivery Time</label>
+        <input type="time" id="editEstDeliveryTime">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Jobcard Type</label>
+      <select id="editJobcardType"></select>
+    </div>
+    <div class="modal-field">
+      <label>Mechanic</label>
+      <select id="editMechanic"></select>
+    </div>
+    <div class="modal-field">
+      <label>Supervisor</label>
+      <select id="editSupervisor"></select>
+    </div>
+    <div class="modal-field">
+      <label>Status (Admin can jump to any stage)</label>
+      <select id="editStatus">
+        <option value="intake">Intake</option>
+        <option value="assigned">Assigned</option>
+        <option value="start">Work Start</option>
+        <option value="finished">Finished</option>
+        <option value="delivered">Delivered</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-save" onclick="submitEditJob()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD VEHICLE MODAL ============ -->
+<div class="modal-overlay" id="addModalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Vehicle Intake</div>
+
+    <div class="modal-field">
+      <label>Jobcard Number <span style="color:var(--orange);">*</span></label>
+      <input type="text" id="newJobId" placeholder="e.g. JC1001" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label>Vehicle Number</label>
+      <input type="text" id="newVehicleNo" placeholder="TN 45 AB 1234" style="text-transform:uppercase;">
+    </div>
+    <div class="modal-field">
+      <label>Customer Name <span style="color:var(--orange);">*</span></label>
+      <input type="text" id="newCustomerName" placeholder="Customer name">
+    </div>
+    <div class="modal-field">
+      <label>Mobile Number <span style="color:var(--orange);">*</span></label>
+      <input type="tel" id="newPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile — needed for delivery feedback message">
+    </div>
+    <div class="modal-field">
+      <label>Model</label>
+      <select id="newModel">
+        <option value="">Select model</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Intake Date</label>
+      <input type="date" id="newIntakeDate">
+    </div>
+    <div class="modal-row-2">
+      <div class="modal-field">
+        <label>Est. Delivery Date</label>
+        <input type="date" id="newEstDeliveryDate">
+      </div>
+      <div class="modal-field">
+        <label>Est. Delivery Time</label>
+        <input type="time" id="newEstDeliveryTime">
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Jobcard Type</label>
+      <select id="newJobcardType">
+        <option value="">Select type</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Assign Mechanic (optional)</label>
+      <select id="newMechanic">
+        <option value="">Not assigned yet</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-save" onclick="submitNewVehicle()">Save Intake</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ============ CONFIRM DIALOG (accidental-change protection) ============ -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-message" id="confirmMessage">Are you sure?</div>
+    <div class="confirm-actions">
+      <button class="confirm-no" id="confirmNoBtn">Cancel</button>
+      <button class="confirm-yes" id="confirmYesBtn">Yes, Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — set this to your deployed GAS Web App /exec URL
+   ========================================================= */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxvYTFSweC0XcWzx66EQtaOMTfYnxPFdRz2qIVMf7cvv6bGAAk8YMZtb4Nlf0HZG8QqAg/exec";
+
+/* =========================================================
+   STATE
+   ========================================================= */
+let vehicles = [];
+let mechanicsList = [];
+let jobcardTypeList = [];
+let modelsList = [];
+let currentUser = null;
+let activeFilter = "all";
+let searchTerm = "";
+let isSubmitting = false;
+let filterFromDate = "";
+let filterToDate = "";
+
+const STATUS_FLOW = ["intake","assigned","start","finished","delivered"];
+const STATUS_LABEL = {intake:"Intake", assigned:"Assigned", start:"Work Start", finished:"Finished", delivered:"Delivered"};
+const NEXT_LABEL = {intake:"Start Work", start:"Mark Finished", finished:"Deliver", delivered:null};
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+async function doLogin(){
+  const username = document.getElementById('loginUsername').value.trim();
+  const pin = document.getElementById('loginPin').value.trim();
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = "";
+
+  if(!username || !pin){
+    errEl.textContent = "Enter username and PIN";
+    return;
+  }
+
+  errEl.textContent = "Checking…";
+  try{
+    const res = await fetch(`${GAS_URL}?action=login&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}`);
+    const data = await res.json();
+    if(data.success){
+      currentUser = data;
+      localStorage.setItem('autoserve_user', JSON.stringify(data));
+      enterApp();
+    } else {
+      errEl.textContent = data.message || "Login failed";
+    }
+  } catch(err){
+    errEl.textContent = "Connection error. Check GAS_URL.";
+  }
+}
+
+function enterApp(){
+  document.getElementById('userName').textContent = currentUser.fullName || currentUser.username;
+  document.getElementById('userRole').textContent = currentUser.role || "";
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+
+  // Restrict "All", Dashboard, and the old Working/Finished/Delivered
+  // tabs to Admin only. Non-admin (Supervisor/Mechanic) users now get
+  // a much simpler view: Previous Intake, Today Intake, and My Assigned
+  // (vehicles tagged to them). This replaces the earlier design where
+  // everyone shared the same tab set.
+  const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
+  const allChip = document.getElementById('allChip');
+  const dashBtn = document.getElementById('dashBtn');
+  const importBtn = document.getElementById('importBtn');
+  const startChip = document.getElementById('startChip');
+  const finishedChip = document.getElementById('finishedChip');
+  const deliveredChip = document.getElementById('deliveredChip');
+  const myAssignedChip = document.getElementById('myAssignedChip');
+
+  if(!isAdmin){
+    allChip.style.display = 'none';
+    dashBtn.style.display = 'none';
+    importBtn.style.display = 'none';
+    startChip.style.display = 'none';
+    finishedChip.style.display = 'none';
+    deliveredChip.style.display = ''; // Delivered is now visible to all users, not just Admin
+    myAssignedChip.style.display = '';
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    document.querySelector('.chip[data-status="intake_today"]').classList.add('active');
+    activeFilter = 'intake_today';
+  } else {
+    allChip.style.display = '';
+    dashBtn.style.display = '';
+    importBtn.style.display = '';
+    startChip.style.display = '';
+    finishedChip.style.display = '';
+    deliveredChip.style.display = '';
+    myAssignedChip.style.display = 'none';
+  }
+
+  // Date range now defaults to today for everyone, and governs every
+  // chip's results (not just intake). Users can widen it to see any
+  // past period across Today Intake / Previous Intake / Delivered / etc.
+  const today = todayDateStr();
+  filterFromDate = today;
+  filterToDate = today;
+  document.getElementById('filterFromDate').value = today;
+  document.getElementById('filterToDate').value = today;
+
+  initApp();
+}
+
+function logout(){
+  currentUser = null;
+  localStorage.removeItem('autoserve_user');
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPin').value = '';
+}
+
+// Restore session on page load/refresh (fixes forced-logout-on-refresh bug)
+(function restoreSession(){
+  const saved = localStorage.getItem('autoserve_user');
+  if(saved){
+    try{
+      currentUser = JSON.parse(saved);
+      enterApp();
+    } catch(e){
+      localStorage.removeItem('autoserve_user');
+    }
+  }
+})();
+
+/* =========================================================
+   INIT — load lists + jobs after login
+   ========================================================= */
+let autoRefreshTimer = null;
+
+let staffList = [];
+let supervisorNames = [];
+
+async function initApp(){
+  await loadLists();
+  await loadJobs();
+  await loadStaff();
+  startAutoRefresh();
+}
+
+async function loadStaff(){
+  try{
+    const res = await fetch(`${GAS_URL}?action=getStaff`);
+    const data = await res.json();
+    if(data.success){
+      staffList = data.staff;
+      supervisorNames = staffList.filter(s => (s.role||"").toLowerCase() === "supervisor").map(s=>s.fullName);
+      renderSupervisorChips();
+      render(); // re-render so Supervisor dropdowns populate once staff data arrives
+    }
+  } catch(err){
+    console.error('[loadStaff] failed', err);
+  }
+}
+
+// Admin/Manager see one chip PER SUPERVISOR (e.g. "Arun", "Mahesh",
+// "Hari") instead of a single generic "My Assigned" chip — each shows
+// that specific Supervisor's currently-assigned (not yet delivered)
+// vehicles. Non-admin users never see these; they only get their own
+// "My Assigned" chip instead.
+function renderSupervisorChips(){
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  const container = document.getElementById('supervisorChipsContainer');
+  if(!isAdmin || supervisorNames.length===0){
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = supervisorNames.map(name => {
+    const filterKey = 'supervisor:' + name;
+    return `<div class="chip" data-status="${filterKey}" style="color:#6a4fb8;">
+      <span class="dot"></span>${name} <span class="chip-count" id="count-${filterKey}">0</span>
+    </div>`;
+  }).join('');
+}
+
+function startAutoRefresh(){
+  if(autoRefreshTimer) clearInterval(autoRefreshTimer);
+  // Silent background sync every 20s so multiple phones stay in sync
+  // without needing a manual reload. Uses silent=true so it doesn't
+  // flash the "Loading…" spinner or disturb whatever the user is doing.
+  autoRefreshTimer = setInterval(()=>loadJobs(true), 20000);
+}
+
+async function manualRefresh(){
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  await loadJobs(true);
+  showToast("Synced");
+  setTimeout(()=>btn.classList.remove('spinning'), 300);
+}
+
+async function loadLists(){
+  try{
+    const res = await fetch(`${GAS_URL}?action=getLists`);
+    const data = await res.json();
+    if(data.success){
+      mechanicsList = data.lists.Mechanics || [];
+      jobcardTypeList = data.lists.JobcardType || [];
+      modelsList = data.lists.Models || [];
+
+      const mechSel = document.getElementById('newMechanic');
+      mechSel.innerHTML = '<option value="">Not assigned yet</option>' +
+        mechanicsList.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+      const typeSel = document.getElementById('newJobcardType');
+      typeSel.innerHTML = '<option value="">Select type</option>' +
+        jobcardTypeList.map(t=>`<option value="${t}">${t}</option>`).join('');
+
+      const modelSel = document.getElementById('newModel');
+      modelSel.innerHTML = '<option value="">Select model</option>' +
+        modelsList.map(m=>`<option value="${m}">${m}</option>`).join('');
+    }
+  } catch(err){
+    showToast("Could not load setup lists", true);
+  }
+}
+
+async function loadJobs(silent){
+  if(!silent){
+    document.getElementById('list').innerHTML = '<div class="loading">Loading vehicles…</div>';
+  }
+  try{
+    const res = await fetch(`${GAS_URL}?action=getJobs`);
+    const data = await res.json();
+    if(data.success){
+      vehicles = data.jobs;
+      render();
+    } else if(!silent){
+      showToast("Failed to load vehicles", true);
+    }
+  } catch(err){
+    if(!silent){
+      document.getElementById('list').innerHTML = '<div class="loading">Connection error. Pull down to retry.</div>';
+    }
+  }
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function todayDateStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Single source of truth for what each chip means, used by both
+// the counts in the filter bar and the actual list filtering —
+// keeps them from ever drifting out of sync with each other.
+function matchesFilter(v, filterKey){
+  const intakeDateStr = (v.IntakeDate||"").toString().slice(0,10);
+  const deliveredDateStr = (v.DeliveredTime||"").toString().slice(0,10);
+
+  // Date range now governs every chip, not just intake — defaults to
+  // today (set where filterFromDate/filterToDate are initialized) but
+  // can be widened by the user to see any period across all tags.
+  const inRange = (dateStr) => {
+    if(!dateStr) return false;
+    return (!filterFromDate || dateStr >= filterFromDate) && (!filterToDate || dateStr <= filterToDate);
+  };
+
+  if(filterKey === "all") return true;
+  if(filterKey === "intake_today") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr === todayDateStr();
+  if(filterKey === "intake_previous") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr !== todayDateStr();
+  if(filterKey === "delivered") return v.Status==="delivered" && inRange(deliveredDateStr);
+  if(filterKey === "my_assigned"){
+    // Vehicles permanently tagged to the logged-in Supervisor (set once,
+    // the first time a Mechanic was assigned) and not yet delivered —
+    // once Delivered, a card leaves My Assigned and only shows under
+    // the Delivered chip instead (per current requirement).
+    const myName = currentUser ? (currentUser.fullName||"").trim().toLowerCase() : null;
+    const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
+    return myName && cardSupervisor === myName && v.Status !== "delivered" && inRange(intakeDateStr);
+  }
+  if(filterKey.startsWith("supervisor:")){
+    // Admin-only per-supervisor chips — same "not yet delivered" scope
+    // as My Assigned, just for a specific named Supervisor instead of
+    // "whoever is currently logged in".
+    const targetName = filterKey.slice("supervisor:".length).trim().toLowerCase();
+    const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
+    return cardSupervisor === targetName && v.Status !== "delivered" && inRange(intakeDateStr);
+  }
+  // start / finished — unchanged, straightforward status match
+  return v.Status === filterKey;
+}
+
+function updateCounts(){
+  document.getElementById('count-all').textContent = vehicles.length;
+  ["intake_today","intake_previous","start","finished","delivered","my_assigned"].forEach(key=>{
+    document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
+  });
+  // Per-supervisor chip counts (Admin only — element won't exist otherwise)
+  supervisorNames.forEach(name=>{
+    const el = document.getElementById('count-supervisor:'+name);
+    if(el) el.textContent = vehicles.filter(v=>matchesFilter(v, 'supervisor:'+name)).length;
+  });
+}
+
+function render(){
+  updateCounts();
+  const listEl = document.getElementById('list');
+  let filtered = vehicles.filter(v=>{
+    const matchesStatus = matchesFilter(v, activeFilter);
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term ||
+      (v.VehicleNo||"").toLowerCase().includes(term) ||
+      String(v.JobID||"").toLowerCase().includes(term);
+    const vDate = (v.IntakeDate||"").toString().slice(0,10);
+    const matchesFrom = !filterFromDate || vDate >= filterFromDate;
+    const matchesTo = !filterToDate || vDate <= filterToDate;
+    return matchesStatus && matchesSearch && matchesFrom && matchesTo;
+  });
+
+  const order = {intake:0, start:1, finished:2, delivered:3};
+  filtered.sort((a,b)=>order[a.Status]-order[b.Status]);
+
+  if(filtered.length===0){
+    listEl.innerHTML = `<div class="empty-state"><div class="icon">&#128269;</div><p>No vehicles found</p></div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
+}
+
+/* ---------------- ADMIN CARD (full detail, unchanged from before) ---------------- */
+function renderAdminCard(v){
+  const nextLabel = NEXT_LABEL[v.Status];
+  // Deliver requires a Supervisor to be picked first (their approval) —
+  // once a vehicle reaches "finished", the Deliver button stays locked
+  // until Supervisor is set. All other transitions are unaffected.
+  const supervisorRequired = v.Status === 'finished';
+  const supervisorMissing = supervisorRequired && !v.Supervisor;
+
+  let actionBtn;
+  if(!nextLabel){
+    actionBtn = `<button class="btn-status" disabled style="opacity:0.4;">Completed</button>`;
+  } else if(supervisorMissing){
+    actionBtn = `<button class="btn-status" disabled style="opacity:0.5;" title="Select a Supervisor first">Deliver (needs approval)</button>`;
+  } else {
+    actionBtn = `<button class="btn-status next" onclick="advanceStatus('${v.JobID}')">${nextLabel} &rarr;</button>`;
+  }
+
+  const mechanicOptions = ['<option value="">Not assigned</option>']
+    .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+    .join('');
+
+  const supervisorOptions = ['<option value="">Select Supervisor</option>']
+    .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
+    .join('');
+
+  return `
+  <div class="card" data-status="${v.Status}">
+    <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
+      <div>
+        <div class="veh-no">${v.VehicleNo}</div>
+        ${v.JobcardType ? `<div class="cust-name">${v.JobcardType}</div>` : ''}
+      </div>
+      <div class="status-tag" data-status="${v.Status}">${STATUS_LABEL[v.Status]}</div>
+    </div>
+    <div class="card-meta">
+      <span>#${v.JobID}</span>
+      <span>&#128197; ${v.IntakeDate||''}</span>
+      <span>&#128337; ${v.IntakeTime||''}</span>
+    </div>
+    ${v.EstDeliveryDate ? `<div class="card-meta"><span>&#9200; Est: ${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</span></div>` : ''}
+    <div class="mechanic-row">
+      <select class="mechanic-select" onchange="assignMechanic('${v.JobID}', this.value)">
+        ${mechanicOptions}
+      </select>
+    </div>
+    ${supervisorRequired ? `
+    <div class="mechanic-row">
+      <select class="mechanic-select" onchange="assignSupervisor('${v.JobID}', this.value)">
+        ${supervisorOptions}
+      </select>
+    </div>` : ''}
+    <div class="card-actions">
+      ${actionBtn}
+    </div>
+  </div>`;
+}
+
+/* ---------------- SIMPLE CARD (Supervisor/Mechanic view) ---------------- *
+ * Per requirement: only Jobcard#, Vehicle#, Service Type, and 3 ticks.
+ * Tick 1 = pick Mechanic (this call also tags Supervisor + advances
+ *          status to "start" — see assignMechanic in backend).
+ * Tick 2 = manual tick by Supervisor, advances to "finished".
+ * Tick 3 = manual tick by Supervisor, advances to "delivered".
+ * Ticks are sequential — Tick 2 only enabled once Tick 1 is done, etc.
+ */
+function renderSimpleCard(v){
+  const intakeDone = true; // every card that exists has already passed Intake
+  const assignedDone = ['assigned','start','finished','delivered'].includes(v.Status);
+  const startDone = ['start','finished','delivered'].includes(v.Status);
+  const finishedDone = ['finished','delivered'].includes(v.Status);
+  const deliveredDone = v.Status === 'delivered';
+
+  const assignedClickable = false; // Assigned is done via the mechanic dropdown itself, not a tap
+  const startClickable = assignedDone && !startDone;
+  const finishedClickable = startDone && !finishedDone;
+  const deliveredClickable = finishedDone && !deliveredDone;
+
+  const mechanicOptions = ['<option value="">Select Mechanic</option>']
+    .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+    .join('');
+
+  // Color-code by Jobcard Type — matches the paper-card system already
+  // in use at the workshop, so the app visually matches physical habit.
+  const typeKey = (v.JobcardType||"").trim().toLowerCase();
+  let colorClass = 'type-yellow'; // default for any type not explicitly mapped (e.g. Paid Service)
+  if(typeKey === 'free service') colorClass = 'type-blue';
+  else if(typeKey === 'general repair') colorClass = 'type-pink';
+
+  const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
+
+  // Assigned column: dropdown while pending (picking a name IS the tick),
+  // small checkmark + timestamp once done.
+  const assignedBox = assignedDone
+    ? `<div class="simple-stage-box done">&#10003;</div>`
+    : `<select class="simple-mechanic-inline" onclick="event.stopPropagation()" onchange="event.stopPropagation(); tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
+  const assignedTimeHtml = assignedDone
+    ? `<div class="simple-stage-time done-time">${fmtTime(v.AssignedTime)}<br>${v.Mechanic||''}</div>`
+    : `<div class="simple-stage-time"></div>`;
+
+  return `
+  <div class="card simple-card ${colorClass}" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
+    <div class="simple-card-body">
+      <div class="simple-card-top">
+        <span class="veh-no">${v.VehicleNo}</span>
+        <span class="jobid-badge">#${v.JobID}</span>
+      </div>
+      <div class="simple-card-pills">
+        ${v.Model ? `<span class="pill-badge">${v.Model}</span>` : ''}
+        ${v.JobcardType ? `<span class="pill-badge">${v.JobcardType}</span>` : ''}
+      </div>
+    </div>
+    <div class="simple-stage-grid">
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Intake</div>
+        <div class="simple-stage-box done">&#10003;</div>
+        <div class="simple-stage-time done-time">${fmtTime(v.IntakeTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Assigned</div>
+        ${assignedBox}
+        ${assignedTimeHtml}
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Start</div>
+        <div class="simple-stage-box ${startDone?'done':(startClickable?'clickable':'')}"
+             ${startClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','start')"`:''}>${startDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${startDone?'done-time':''}">${fmtTime(v.StartTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Completed</div>
+        <div class="simple-stage-box ${finishedDone?'done':(finishedClickable?'clickable':'')}"
+             ${finishedClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','finished')"`:''}>${finishedDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${finishedDone?'done-time':''}">${fmtTime(v.FinishTime)}</div>
+      </div>
+      <div class="simple-stage-col">
+        <div class="simple-stage-label">Delivered</div>
+        <div class="simple-stage-box ${deliveredDone?'done':(deliveredClickable?'clickable':'')}"
+             ${deliveredClickable?`onclick="event.stopPropagation(); tickAdvance('${v.JobID}','delivered')"`:''}>${deliveredDone?'&#10003;':''}</div>
+        <div class="simple-stage-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+function advanceStatus(jobId){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v){
+    console.error('[advanceStatus] No matching vehicle found for jobId', jobId, vehicles);
+    showToast("Error: vehicle not found (JobID mismatch)", true);
+    return;
+  }
+  const idx = STATUS_FLOW.indexOf(v.Status);
+  if(idx >= STATUS_FLOW.length-1) return;
+  const newStatus = STATUS_FLOW[idx+1];
+
+  // Supervisor approval gate — Deliver is blocked until a Supervisor
+  // has been picked on this card. The button is already disabled for
+  // this case, but this check stays here too since the real enforcement
+  // lives on the backend (updateStatus rejects it either way).
+  if(newStatus === 'delivered' && !v.Supervisor){
+    showToast("Select a Supervisor to approve before delivering", true);
+    return;
+  }
+
+  showConfirm(
+    `Move ${v.VehicleNo} to "${STATUS_LABEL[newStatus]}"?`,
+    () => confirmedAdvanceStatus(jobId, newStatus)
+  );
+}
+
+async function confirmedAdvanceStatus(jobId, newStatus){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  // optimistic update
+  const prevStatus = v.Status;
+  v.Status = newStatus;
+  render();
+
+  try{
+    const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      showToast(`${v.VehicleNo} → ${STATUS_LABEL[newStatus]}`);
+    } else {
+      console.error('[advanceStatus] server rejected update:', data.message);
+      showToast("Failed: " + (data.message||"unknown error"), true);
+      v.Status = prevStatus;
+      render();
+    }
+  } catch(err){
+    console.error('[advanceStatus] fetch error', err);
+    showToast("Connection error: " + err.message, true);
+    v.Status = prevStatus;
+    render();
+  }
+}
+
+async function assignMechanic(jobId, mechanic){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  v.Mechanic = mechanic;
+  try{
+    const res = await fetch(`${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}`);
+    const data = await res.json();
+    if(data.success){
+      showToast(mechanic ? `Assigned to ${mechanic}` : "Mechanic cleared");
+      loadJobs(true); // pick up any status/Supervisor change the backend made
+    }
+  } catch(err){
+    showToast("Could not save mechanic", true);
+  }
+}
+
+async function assignSupervisor(jobId, supervisor){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  v.Supervisor = supervisor;
+  render(); // re-render immediately so the Deliver button unlocks/locks right away
+  try{
+    const res = await fetch(`${GAS_URL}?action=assignSupervisor&jobId=${encodeURIComponent(jobId)}&supervisor=${encodeURIComponent(supervisor)}`);
+    const data = await res.json();
+    if(data.success){
+      showToast(supervisor ? `Approved by ${supervisor}` : "Supervisor cleared");
+    } else {
+      showToast(data.message || "Could not save supervisor", true);
+    }
+  } catch(err){
+    showToast("Could not save supervisor", true);
+  }
+}
+
+/* =========================================================
+   TICK ACTIONS — Supervisor/Mechanic simplified card
+   ========================================================= */
+
+// Tick 1: picking a Mechanic here also tags Supervisor (first time only)
+// and advances Status to "start" — all handled server-side in one call.
+async function tickAssignMechanic(jobId, mechanic){
+  if(!mechanic) return; // placeholder "Select Mechanic" option chosen — no-op
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  if(!currentUser || !currentUser.fullName){
+    showToast("Session error — please log out and log in again", true);
+    console.error('[tickAssignMechanic] currentUser or fullName missing', currentUser);
+    return;
+  }
+  const supervisorTag = currentUser.fullName;
+
+  showConfirm(`Assign ${mechanic} to ${v.VehicleNo}?`, async () => {
+    // optimistic update (visual only — server response below is source of truth)
+    v.Mechanic = mechanic;
+    v.Status = 'assigned';
+    if(!v.Supervisor) v.Supervisor = supervisorTag;
+    render();
+
+    try{
+      const url = `${GAS_URL}?action=assignMechanic&jobId=${encodeURIComponent(jobId)}&mechanic=${encodeURIComponent(mechanic)}&supervisorTag=${encodeURIComponent(supervisorTag)}&username=${encodeURIComponent(currentUser.username)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      console.log('[tickAssignMechanic] server response:', data);
+
+      if(data.success){
+        showToast(`Assigned to ${mechanic}`);
+        // Always re-sync this vehicle from the server's actual saved
+        // state rather than trusting the optimistic guess above — this
+        // is what previously let a silent mismatch (e.g. Supervisor not
+        // actually saved) go unnoticed until the My Assigned tab.
+        await loadJobs(true);
+      } else {
+        showToast(data.message || "Failed to start work", true);
+        await loadJobs(true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+      console.error('[tickAssignMechanic] fetch failed', err);
+      await loadJobs(true);
+    }
+  });
+}
+
+// Tick 2 / Tick 3: straightforward status advance, same endpoint as
+// advanceStatus but triggered by tapping the tick row instead of a button.
+async function tickAdvance(jobId, newStatus){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  const labelMap = {start:'Work Start', finished:'Work Completed', delivered:'Delivered'};
+  const label = labelMap[newStatus] || newStatus;
+  showConfirm(`Mark ${v.VehicleNo} as ${label}?`, async () => {
+    const prevStatus = v.Status;
+    v.Status = newStatus;
+    render();
+
+    try{
+      const url = `${GAS_URL}?action=updateStatus&jobId=${encodeURIComponent(jobId)}&status=${newStatus}&username=${encodeURIComponent(currentUser?currentUser.username:'')}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.success){
+        showToast(`${v.VehicleNo} → ${label}`);
+        // Re-sync from server so the newly-written timestamp (StartTime/
+        // FinishTime/DeliveredTime) shows correctly under the tick right away.
+        await loadJobs(true);
+      } else {
+        showToast(data.message || "Update failed", true);
+        v.Status = prevStatus;
+        render();
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+      v.Status = prevStatus;
+      render();
+    }
+  });
+}
+
+/* =========================================================
+   ADD VEHICLE MODAL
+   ========================================================= */
+function openAddModal(){
+  document.getElementById('newJobId').value = '';
+  document.getElementById('newVehicleNo').value = '';
+  document.getElementById('newCustomerName').value = '';
+  document.getElementById('newPhone').value = '';
+  document.getElementById('newModel').value = '';
+  document.getElementById('newJobcardType').value = '';
+  document.getElementById('newMechanic').value = '';
+  document.getElementById('newEstDeliveryDate').value = '';
+  document.getElementById('newEstDeliveryTime').value = '';
+  // default date = today
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  document.getElementById('newIntakeDate').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('addModalOverlay').classList.add('show');
+}
+
+function closeAddModal(){
+  document.getElementById('addModalOverlay').classList.remove('show');
+}
+
+async function submitNewVehicle(){
+  // Guard against double-tap / double-submit (fixes duplicate-row bug)
+  if(isSubmitting) return;
+
+  const jobId = document.getElementById('newJobId').value.trim();
+  const vehicleNo = document.getElementById('newVehicleNo').value.trim().toUpperCase();
+  const customerName = document.getElementById('newCustomerName').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
+  const model = document.getElementById('newModel').value;
+  const intakeDate = document.getElementById('newIntakeDate').value;
+  const jobcardType = document.getElementById('newJobcardType').value;
+  const mechanic = document.getElementById('newMechanic').value;
+  const estDeliveryDate = document.getElementById('newEstDeliveryDate').value;
+  const estDeliveryTime = document.getElementById('newEstDeliveryTime').value;
+
+  if(!jobId){
+    showToast("Jobcard Number is required", true);
+    return;
+  }
+  if(!vehicleNo){
+    showToast("Vehicle number required", true);
+    return;
+  }
+  if(!customerName){
+    showToast("Customer name is required", true);
+    return;
+  }
+  if(!phone || phone.length !== 10){
+    showToast("A valid 10-digit mobile number is required (needed for delivery feedback message)", true);
+    return;
+  }
+
+  const saveBtn = document.querySelector('.btn-save');
+  isSubmitting = true;
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving…";
+  saveBtn.style.opacity = "0.6";
+
+  const params = new URLSearchParams({
+    action: 'addJob',
+    jobId, vehicleNo, customerName, phone, model, intakeDate, jobcardType, mechanic, estDeliveryDate, estDeliveryTime,
+    username: currentUser ? currentUser.username : ''
+  });
+
+  try{
+    const res = await fetch(`${GAS_URL}?${params.toString()}`);
+    const data = await res.json();
+    if(data.success){
+      showToast("Vehicle added");
+      closeAddModal();
+      // Optimistic append — avoids a full sheet re-read/re-render (this was the main sync delay)
+      const now = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      vehicles.push({
+        JobID: jobId,
+        VehicleNo: vehicleNo,
+        CustomerName: customerName,
+        Phone: phone,
+        IntakeDate: intakeDate,
+        JobcardType: jobcardType,
+        Model: model,
+        Status: "intake",
+        IntakeTime: nowStr,
+        AssignedTime: "",
+        StartTime: "",
+        FinishTime: "",
+        DeliveredTime: "",
+        Mechanic: mechanic,
+        CreatedBy: currentUser ? currentUser.username : "",
+        EstDeliveryDate: estDeliveryDate,
+        EstDeliveryTime: estDeliveryTime
+      });
+      render();
+    } else {
+      showToast(data.message || "Failed to add", true);
+    }
+  } catch(err){
+    showToast("Connection error", true);
+  } finally {
+    isSubmitting = false;
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Intake";
+    saveBtn.style.opacity = "1";
+  }
+}
+
+/* =========================================================
+   SEARCH & FILTER
+   ========================================================= */
+document.getElementById('searchInput').addEventListener('input', e=>{
+  searchTerm = e.target.value;
+  document.getElementById('clearBtn').classList.toggle('show', searchTerm.length>0);
+  render();
+});
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  document.getElementById('searchInput').value='';
+  searchTerm='';
+  document.getElementById('clearBtn').classList.remove('show');
+  render();
+});
+document.getElementById('filters').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  activeFilter = chip.dataset.status;
+  render();
+});
+document.getElementById('filterFromDate').addEventListener('change', e=>{
+  filterFromDate = e.target.value;
+  render();
+});
+document.getElementById('filterToDate').addEventListener('change', e=>{
+  filterToDate = e.target.value;
+  render();
+});
+document.getElementById('dateRangeClearBtn').addEventListener('click', ()=>{
+  filterFromDate = '';
+  filterToDate = '';
+  document.getElementById('filterFromDate').value = '';
+  document.getElementById('filterToDate').value = '';
+  render();
+});
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function toggleDashboard(){
+  const overlay = document.getElementById('dashboardOverlay');
+  const isShowing = overlay.classList.toggle('show');
+  if(isShowing) renderDashboard();
+}
+
+function renderDashboard(){
+  // Dashboard respects the same date range filter as the main list,
+  // so "today only" or "this week" summaries are just a date pick away.
+  const inRange = vehicles.filter(v=>{
+    const vDate = (v.IntakeDate||"").toString().slice(0,10);
+    const matchesFrom = !filterFromDate || vDate >= filterFromDate;
+    const matchesTo = !filterToDate || vDate <= filterToDate;
+    return matchesFrom && matchesTo;
+  });
+
+  const counts = {intake:0, start:0, finished:0, delivered:0};
+  inRange.forEach(v=>{ if(counts[v.Status]!==undefined) counts[v.Status]++; });
+
+  // Average turnaround: IntakeTime -> DeliveredTime, for delivered vehicles only
+  let totalMinutes = 0, deliveredWithTimes = 0;
+  inRange.forEach(v=>{
+    if(v.Status==='delivered' && v.IntakeTime && v.DeliveredTime){
+      const t1 = new Date(v.IntakeTime.replace(' ','T'));
+      const t2 = new Date(v.DeliveredTime.replace(' ','T'));
+      if(!isNaN(t1) && !isNaN(t2) && t2>t1){
+        totalMinutes += (t2-t1)/60000;
+        deliveredWithTimes++;
+      }
+    }
+  });
+  const avgMinutes = deliveredWithTimes ? Math.round(totalMinutes/deliveredWithTimes) : 0;
+  const avgLabel = avgMinutes >= 60
+    ? `${Math.floor(avgMinutes/60)}h ${avgMinutes%60}m`
+    : `${avgMinutes}m`;
+
+  // Mechanic workload (open jobs only: start status)
+  const mechCounts = {};
+  inRange.forEach(v=>{
+    if(v.Status==='start' && v.Mechanic){
+      mechCounts[v.Mechanic] = (mechCounts[v.Mechanic]||0) + 1;
+    }
+  });
+
+  // Supervisor-wise assigned vehicle list — every non-delivered vehicle
+  // grouped under whichever Supervisor it's tagged to, with vehicle
+  // numbers listed out so Admin can see each Supervisor's queue at a
+  // glance without opening My Assigned as that Supervisor.
+  const supervisorGroups = {};
+  inRange.forEach(v=>{
+    if(v.Supervisor && v.Status !== 'delivered'){
+      if(!supervisorGroups[v.Supervisor]) supervisorGroups[v.Supervisor] = [];
+      supervisorGroups[v.Supervisor].push(v);
+    }
+  });
+
+  const rangeLabel = (filterFromDate || filterToDate)
+    ? `${filterFromDate||'…'} to ${filterToDate||'…'}`
+    : 'All time';
+
+  const body = document.getElementById('dashboardBody');
+  body.innerHTML = `
+    <div style="font-size:12px; color:var(--text-faint); margin-bottom:14px;">Showing: ${rangeLabel}</div>
+    <div class="stat-grid">
+      <div class="stat-card total"><div class="stat-value">${inRange.length}</div><div class="stat-label">Total Vehicles</div></div>
+      <div class="stat-card avg"><div class="stat-value">${deliveredWithTimes ? avgLabel : '—'}</div><div class="stat-label">Avg Turnaround</div></div>
+      <div class="stat-card intake"><div class="stat-value">${counts.intake}</div><div class="stat-label">Intake</div></div>
+      <div class="stat-card start"><div class="stat-value">${counts.start}</div><div class="stat-label">Working</div></div>
+      <div class="stat-card finished"><div class="stat-value">${counts.finished}</div><div class="stat-label">Finished</div></div>
+      <div class="stat-card delivered"><div class="stat-value">${counts.delivered}</div><div class="stat-label">Delivered</div></div>
+    </div>
+    <div class="dash-section-title">Mechanic Workload (Currently Working)</div>
+    ${Object.keys(mechCounts).length===0
+      ? '<div style="color:var(--text-faint); font-size:12.5px;">No active jobs assigned right now</div>'
+      : Object.entries(mechCounts).sort((a,b)=>b[1]-a[1]).map(([m,c])=>
+          `<div class="mech-row"><span>${m}</span><span class="mech-count">${c} job${c>1?'s':''}</span></div>`
+        ).join('')
+    }
+    <div class="dash-section-title">Supervisor-wise Assigned Vehicles</div>
+    ${Object.keys(supervisorGroups).length===0
+      ? '<div style="color:var(--text-faint); font-size:12.5px;">No vehicles currently tagged to a Supervisor</div>'
+      : Object.entries(supervisorGroups).map(([supName, vList])=>`
+          <div class="supervisor-group">
+            <div class="supervisor-group-name">${supName} <span class="mech-count">${vList.length} vehicle${vList.length>1?'s':''}</span></div>
+            ${vList.map(v=>`
+              <div class="supervisor-group-row">
+                <span>${v.VehicleNo}</span>
+                <span class="status-tag" data-status="${v.Status}" style="font-size:9px;">${STATUS_LABEL[v.Status]}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')
+    }
+  `;
+}
+
+/* =========================================================
+   DAILY REPORT — visible to all users
+   ========================================================= */
+function toggleReport(){
+  const overlay = document.getElementById('reportOverlay');
+  const isShowing = overlay.classList.toggle('show');
+  if(isShowing){
+    // Default range = today only, per requirement. User can pick a
+    // different range with the date fields and tap Refresh Report.
+    const today = todayDateStr();
+    document.getElementById('reportFromDate').value = today;
+    document.getElementById('reportToDate').value = today;
+    renderReport();
+  }
+}
+
+function dateInRange(dateStr, from, to){
+  if(!dateStr) return false;
+  const d = dateStr.toString().slice(0,10);
+  return (!from || d >= from) && (!to || d <= to);
+}
+
+function renderReport(){
+  const from = document.getElementById('reportFromDate').value;
+  const to = document.getElementById('reportToDate').value;
+  const rangeLabel = (from === to) ? from : `${from} to ${to}`;
+
+  // --- Type Report: count vehicles that REACHED each stage within the
+  // selected range (based on that stage's own timestamp), grouped by
+  // JobcardType. Working = StartTime in range, Finished = FinishTime in
+  // range, Delivered = DeliveredTime in range. A vehicle can appear in
+  // more than one column if multiple stages happened within the range.
+  const typeCounts = {};
+  jobcardTypeList.forEach(t => { typeCounts[t] = {working:0, finished:0, delivered:0}; });
+  // Also catch any type on a job card that isn't in the current Lists
+  // (e.g. was removed from Lists after being used) so nothing silently vanishes.
+  vehicles.forEach(v=>{
+    const type = v.JobcardType || 'Unspecified';
+    if(!typeCounts[type]) typeCounts[type] = {working:0, finished:0, delivered:0};
+    if(dateInRange(v.StartTime, from, to)) typeCounts[type].working++;
+    if(dateInRange(v.FinishTime, from, to)) typeCounts[type].finished++;
+    if(dateInRange(v.DeliveredTime, from, to)) typeCounts[type].delivered++;
+  });
+  const typeRows = Object.entries(typeCounts)
+    .filter(([type,c]) => c.working || c.finished || c.delivered)
+    .map(([type,c]) => `
+      <tr>
+        <td>${type}</td>
+        <td class="num">${c.working||''}</td>
+        <td class="num">${c.finished||''}</td>
+        <td class="num">${c.delivered||''}</td>
+      </tr>`).join('');
+
+  // --- Supervisor / Mechanic reports: same Working/Finished/Delivered
+  // breakdown, but grouped by staff name instead of Jobcard Type.
+  // Mechanic field on the job card is matched directly against staff
+  // FullName — keep names consistent between Users and Lists sheets.
+  function buildStaffRows(role){
+    const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
+    const counts = {};
+    names.forEach(n => { counts[n] = {working:0, finished:0, delivered:0}; });
+    // Supervisors are credited via the Supervisor field (their approval,
+    // which always corresponds to the Delivered stage). Mechanics are
+    // credited via the Mechanic field across Working/Finished/Delivered.
+    const isSupervisorReport = role.toLowerCase() === 'supervisor';
+    vehicles.forEach(v=>{
+      if(isSupervisorReport){
+        const name = v.Supervisor;
+        if(!name || !counts[name]) return;
+        if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+      } else {
+        const name = v.Mechanic;
+        if(!name || !counts[name]) return;
+        if(dateInRange(v.StartTime, from, to)) counts[name].working++;
+        if(dateInRange(v.FinishTime, from, to)) counts[name].finished++;
+        if(dateInRange(v.DeliveredTime, from, to)) counts[name].delivered++;
+      }
+    });
+    return names.map(n => `
+      <tr>
+        <td>${n}</td>
+        <td class="num">${counts[n].working||''}</td>
+        <td class="num">${counts[n].finished||''}</td>
+        <td class="num">${counts[n].delivered||''}</td>
+      </tr>`).join('');
+  }
+
+  const supervisorRows = buildStaffRows('Supervisor');
+  const mechanicRows = buildStaffRows('Mechanic');
+
+  // --- Absent Staff: anyone with zero activity (no Working/Finished/
+  // Delivered rows) anywhere in the selected range, split by role.
+  function findAbsent(role){
+    const names = staffList.filter(s => (s.role||"").toLowerCase() === role.toLowerCase()).map(s=>s.fullName);
+    const isSupervisorReport = role.toLowerCase() === 'supervisor';
+    return names.filter(n=>{
+      const hasActivity = vehicles.some(v => {
+        if(isSupervisorReport){
+          return v.Supervisor === n && dateInRange(v.DeliveredTime, from, to);
+        }
+        return v.Mechanic === n && (
+          dateInRange(v.StartTime, from, to) ||
+          dateInRange(v.FinishTime, from, to) ||
+          dateInRange(v.DeliveredTime, from, to)
+        );
+      });
+      return !hasActivity;
+    });
+  }
+  const absentSupervisors = findAbsent('Supervisor');
+  const absentMechanics = findAbsent('Mechanic');
+  const maxAbsentRows = Math.max(absentSupervisors.length, absentMechanics.length, 1);
+  let absentRows = '';
+  for(let i=0;i<maxAbsentRows;i++){
+    absentRows += `<tr><td>${absentSupervisors[i]||''}</td><td>${absentMechanics[i]||''}</td></tr>`;
+  }
+
+  document.getElementById('reportCard').innerHTML = `
+    <div class="report-card" id="reportCardInner">
+      <div class="report-title">Service Report</div>
+      <div class="report-date">${rangeLabel}</div>
+
+      <div class="report-section-title">Type Report</div>
+      <table class="report-table">
+        <tr><th>Type</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${typeRows || '<tr><td colspan="4" class="report-empty-note">No activity in this range</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Supervisors Report</div>
+      <table class="report-table">
+        <tr><th>Name</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${supervisorRows || '<tr><td colspan="4" class="report-empty-note">No supervisors set up in Users sheet</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Mechanics Report</div>
+      <table class="report-table">
+        <tr><th>Name</th><th>Working</th><th>Finished</th><th>Delivered</th></tr>
+        ${mechanicRows || '<tr><td colspan="4" class="report-empty-note">No mechanics set up in Users sheet</td></tr>'}
+      </table>
+
+      <div class="report-section-title">Absent Staff (no activity in this range)</div>
+      <table class="report-table">
+        <tr><th>Supervisors</th><th>Mechanics</th></tr>
+        ${absentRows}
+      </table>
+    </div>
+  `;
+}
+
+async function shareReportToWhatsApp(){
+  const shareBtn = document.getElementById('reportShareBtn');
+  const cardEl = document.getElementById('reportCardInner');
+  if(!cardEl){
+    showToast("Generate the report first", true);
+    return;
+  }
+
+  shareBtn.disabled = true;
+  shareBtn.textContent = "Preparing image…";
+
+  try{
+    const canvas = await html2canvas(cardEl, {backgroundColor:'#ffffff', scale:2});
+    canvas.toBlob(async (blob)=>{
+      const file = new File([blob], 'service-report.png', {type:'image/png'});
+
+      // Web Share API with files works on most mobile browsers (Chrome/Android,
+      // Safari/iOS 15+) and opens the native share sheet with WhatsApp as an option.
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file], title:'Service Report'});
+        } catch(shareErr){
+          // User cancelled the share sheet — not an error, just no-op
+        }
+      } else {
+        // Fallback for desktop browsers without native file sharing:
+        // download the image so it can be attached to WhatsApp Web manually.
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'service-report.png';
+        link.click();
+        showToast("Image downloaded — attach it in WhatsApp");
+      }
+      shareBtn.disabled = false;
+      shareBtn.textContent = "📱 Share Report on WhatsApp";
+    }, 'image/png');
+  } catch(err){
+    console.error('[shareReport] failed', err);
+    showToast("Could not generate report image", true);
+    shareBtn.disabled = false;
+    shareBtn.textContent = "📱 Share Report on WhatsApp";
+  }
+}
+
+/* =========================================================
+   BULK UPLOAD — EXCEL (Admin only)
+   ========================================================= */
+function toggleImport(){
+  const overlay = document.getElementById('importOverlay');
+  overlay.classList.toggle('show');
+  document.getElementById('importResultBody').innerHTML = '';
+  document.getElementById('importFileInput').value = '';
+}
+
+// Generates a ready-to-fill .xlsx with the exact headers the import
+// expects, plus one example row showing the correct format — downloaded
+// directly in-browser via SheetJS, no server round-trip needed.
+function downloadImportTemplate(){
+  const headers = ["Jobcard No", "Vehicle No", "Customer Name", "Mobile Number", "Service Type", "Model", "Intake Date"];
+  const exampleRow = ["JC1001", "TN47AB1234", "Ravi Kumar", "9876543210", "Paid Service", "Splendor Plus", todayDateStr()];
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+  ws['!cols'] = [{wch:12},{wch:16},{wch:18},{wch:14},{wch:16},{wch:16},{wch:14}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Import");
+  XLSX.writeFile(wb, "AutoServe_Import_Template.xlsx");
+  showToast("Template downloaded");
+}
+
+// Forces any date value coming out of an uploaded Excel file into a
+// consistent "yyyy-MM-dd" string, regardless of how the source cell
+// was formatted. Handles three cases:
+//   1. Already correct text like "2026-07-14" — passed through as-is
+//   2. Locale-formatted text like "7/14/26" or "14/7/2026" — parsed
+//      and reformatted
+//   3. Excel serial date numbers (e.g. 46213) — converted via SheetJS's
+//      own date parser, which is the most reliable path when available
+function normalizeExcelDate(value){
+  if(value === undefined || value === null || value === "") return todayDateStr();
+
+  const raw = String(value).trim();
+
+  // Case 1: already yyyy-MM-dd (or yyyy-MM-dd with time attached)
+  if(/^\d{4}-\d{2}-\d{2}/.test(raw)){
+    return raw.slice(0,10);
+  }
+
+  // Case 3: pure number — Excel serial date. SheetJS ships a helper
+  // for exactly this conversion.
+  if(/^\d+(\.\d+)?$/.test(raw)){
+    const parsed = XLSX.SSF.parse_date_code(Number(raw));
+    if(parsed){
+      const pad = n => String(n).padStart(2,'0');
+      return `${parsed.y}-${pad(parsed.m)}-${pad(parsed.d)}`;
+    }
+  }
+
+  // Case 2: locale date text like "7/14/26", "14/7/2026", "7-14-2026"
+  const match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(match){
+    let [, part1, part2, year] = match;
+    if(year.length === 2) year = (Number(year) < 50 ? '20' : '19') + year;
+    // Excel/US locale exports are typically M/D/YY — treat first number
+    // as month when it's <=12, matching the template's own example
+    // format and what Excel produces by default on most Indian systems
+    // (which usually inherit US-style short date unless changed).
+    let month = Number(part1), day = Number(part2);
+    if(month > 12 && day <= 12){ [month, day] = [day, month]; } // swap if clearly D/M
+    const pad = n => String(n).padStart(2,'0');
+    return `${year}-${pad(month)}-${pad(day)}`;
+  }
+
+  // Fallback: let the browser's Date parser take a shot; if that also
+  // fails, default to today rather than saving a broken date string.
+  const asDate = new Date(raw);
+  if(!isNaN(asDate)){
+    const pad = n => String(n).padStart(2,'0');
+    return `${asDate.getFullYear()}-${pad(asDate.getMonth()+1)}-${pad(asDate.getDate())}`;
+  }
+
+  return todayDateStr();
+}
+
+async function submitImport(){
+  const fileInput = document.getElementById('importFileInput');
+  const file = fileInput.files[0];
+  if(!file){
+    showToast("Choose a file first", true);
+    return;
+  }
+
+  const btn = document.getElementById('importSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = "Reading file…";
+
+  try{
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, {type:'array'});
+    const firstSheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[firstSheetName];
+    // header:1 gives raw rows as arrays, matching the template's column
+    // order exactly: Jobcard No, Vehicle No, Customer Name, Mobile Number,
+    // Service Type, Model, Intake Date
+    const allRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:""});
+
+    // Skip the header row (row 0), and any fully blank rows
+    const dataRows = allRows.slice(1).filter(r => r && r.some(cell => String(cell).trim() !== ""));
+
+    if(dataRows.length === 0){
+      showToast("No data rows found in the file", true);
+      btn.disabled = false;
+      btn.textContent = "Upload & Import";
+      return;
+    }
+
+    // Reorder to match backend's expected row shape:
+    // [JobID, VehicleNo, JobcardType, Model, IntakeDate, CustomerName, Phone]
+    //
+    // Intake Date needs special handling: Excel stores dates as its own
+    // internal format, and depending on how the source cell was
+    // formatted, SheetJS can hand back locale strings like "7/14/26"
+    // instead of "2026-07-14". normalizeExcelDate() below forces every
+    // possible input shape into a consistent yyyy-MM-dd string before
+    // it's ever sent to the backend.
+    const rows = dataRows.map(r => [
+      String(r[0]||"").trim(),                 // Jobcard No
+      String(r[1]||"").trim().toUpperCase(),    // Vehicle No
+      String(r[4]||"").trim(),                  // Service Type
+      String(r[5]||"").trim(),                  // Model
+      normalizeExcelDate(r[6]),                 // Intake Date
+      String(r[2]||"").trim(),                  // Customer Name
+      String(r[3]||"").trim()                   // Mobile Number
+    ]);
+
+    btn.textContent = "Importing…";
+
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'importJobs',
+        rows: rows,
+        username: currentUser ? currentUser.username : ''
+      })
+    });
+    const data = await res.json();
+
+    if(data.success){
+      showToast(`Imported ${data.imported} vehicle${data.imported!==1?'s':''}`);
+      fileInput.value = '';
+      const resultBody = document.getElementById('importResultBody');
+      if(data.skipped && data.skipped.length){
+        resultBody.innerHTML = `
+          <div class="report-section-title" style="color:var(--orange); border-color:var(--orange);">Skipped (${data.skipped.length})</div>
+          ${data.skipped.map(s=>`<div style="font-size:11.5px; color:var(--text-dim); padding:4px 0;">Row ${s.row}: ${s.reason}</div>`).join('')}
+        `;
+      } else {
+        resultBody.innerHTML = `<div style="font-size:12px; color:var(--teal);">All rows imported successfully, none skipped.</div>`;
+      }
+      loadJobs(true);
+    } else {
+      showToast(data.message || "Import failed", true);
+    }
+  } catch(err){
+    showToast("Could not read file: " + err.message, true);
+    console.error('[submitImport] failed', err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Upload & Import";
+  }
+}
+
+/* =========================================================
+   VEHICLE HISTORY MODAL
+   ========================================================= */
+function openHistoryModal(jobId){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  document.getElementById('historyModalTitle').textContent = `${v.VehicleNo} — Jobcard #${v.JobID}`;
+
+  const stages = [
+    {key:'IntakeTime', label:'Intake', done: !!v.IntakeTime},
+    {key:'StartTime', label:'Work Start', done: !!v.StartTime},
+    {key:'FinishTime', label:'Work Finished', done: !!v.FinishTime},
+    {key:'DeliveredTime', label:'Delivered', done: !!v.DeliveredTime}
+  ];
+
+  const stageHtml = stages.map(s=>`
+    <div class="history-stage ${s.done?'done':''}">
+      <div class="history-dot"></div>
+      <div>
+        <div class="history-stage-label">${s.label}</div>
+        <div class="history-stage-time">${v[s.key] || 'Not yet'}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const metaHtml = `
+    <div class="history-meta-row"><span>Jobcard Type</span><b>${v.JobcardType||'—'}</b></div>
+    <div class="history-meta-row"><span>Mechanic</span><b>${v.Mechanic||'Not assigned'}</b></div>
+    <div class="history-meta-row"><span>Supervisor</span><b>${v.Supervisor||'Not approved yet'}</b></div>
+    <div class="history-meta-row"><span>Intake Date</span><b>${v.IntakeDate||'—'}</b></div>
+    ${v.EstDeliveryDate ? `<div class="history-meta-row"><span>Est. Delivery</span><b>${v.EstDeliveryDate} ${v.EstDeliveryTime||''}</b></div>` : ''}
+    <div class="history-meta-row"><span>Created By</span><b>${v.CreatedBy||'—'}</b></div>
+  `;
+
+  document.getElementById('historyModalBody').innerHTML = metaHtml + '<div style="margin-top:14px;">' + stageHtml + '</div>';
+
+  // Admin-only edit/delete actions
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  document.getElementById('historyAdminActions').style.display = isAdmin ? 'flex' : 'none';
+  currentHistoryJobId = jobId;
+
+  document.getElementById('historyModalOverlay').classList.add('show');
+}
+
+function closeHistoryModal(){
+  document.getElementById('historyModalOverlay').classList.remove('show');
+}
+
+/* =========================================================
+   ADMIN: EDIT JOB CARD
+   ========================================================= */
+let currentHistoryJobId = null;
+
+function openEditModal(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  document.getElementById('editModalJobId').textContent = '#' + v.JobID;
+  document.getElementById('editVehicleNo').value = v.VehicleNo || '';
+  document.getElementById('editIntakeDate').value = (v.IntakeDate||'').toString().slice(0,10);
+  document.getElementById('editEstDeliveryDate').value = (v.EstDeliveryDate||'').toString().slice(0,10);
+  document.getElementById('editEstDeliveryTime').value = v.EstDeliveryTime || '';
+  document.getElementById('editStatus').value = v.Status || 'intake';
+
+  const typeSel = document.getElementById('editJobcardType');
+  typeSel.innerHTML = '<option value="">Select type</option>' +
+    jobcardTypeList.map(t=>`<option value="${t}" ${v.JobcardType===t?'selected':''}>${t}</option>`).join('');
+
+  const modelSel = document.getElementById('editModel');
+  modelSel.innerHTML = '<option value="">Select model</option>' +
+    modelsList.map(m=>`<option value="${m}" ${v.Model===m?'selected':''}>${m}</option>`).join('');
+
+  const mechSel = document.getElementById('editMechanic');
+  mechSel.innerHTML = '<option value="">Not assigned</option>' +
+    mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`).join('');
+
+  const supSel = document.getElementById('editSupervisor');
+  supSel.innerHTML = '<option value="">Not approved</option>' +
+    supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`).join('');
+
+  closeHistoryModal();
+  document.getElementById('editModalOverlay').classList.add('show');
+}
+
+function closeEditModal(){
+  document.getElementById('editModalOverlay').classList.remove('show');
+}
+
+async function submitEditJob(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  const vehicleNo = document.getElementById('editVehicleNo').value.trim().toUpperCase();
+  const intakeDate = document.getElementById('editIntakeDate').value;
+  const estDeliveryDate = document.getElementById('editEstDeliveryDate').value;
+  const estDeliveryTime = document.getElementById('editEstDeliveryTime').value;
+  const jobcardType = document.getElementById('editJobcardType').value;
+  const mechanic = document.getElementById('editMechanic').value;
+  const supervisor = document.getElementById('editSupervisor').value;
+  const status = document.getElementById('editStatus').value;
+
+  if(!vehicleNo){
+    showToast("Vehicle number required", true);
+    return;
+  }
+  // Admin bypasses the normal approval gate via direct edit, but we still
+  // warn clearly so it's an intentional override, not an accidental skip.
+  if(status === 'delivered' && !supervisor){
+    showToast("Warning: delivering without a Supervisor selected", true);
+  }
+
+  const doSave = async () => {
+    const params = new URLSearchParams({
+      action: 'editJob', jobId: currentHistoryJobId,
+      vehicleNo, intakeDate, estDeliveryDate, estDeliveryTime, jobcardType, mechanic, supervisor, status,
+      username: currentUser ? currentUser.username : ''
+    });
+    try{
+      const res = await fetch(`${GAS_URL}?${params.toString()}`);
+      const data = await res.json();
+      if(data.success){
+        // Update local state immediately (optimistic)
+        v.VehicleNo = vehicleNo; v.IntakeDate = intakeDate;
+        v.EstDeliveryDate = estDeliveryDate; v.EstDeliveryTime = estDeliveryTime;
+        v.JobcardType = jobcardType; v.Mechanic = mechanic; v.Supervisor = supervisor; v.Status = status;
+        showToast("Jobcard updated");
+        closeEditModal();
+        render();
+      } else {
+        showToast(data.message || "Update failed", true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+    }
+  };
+
+  if(status !== v.Status){
+    showConfirm(`Change status from "${STATUS_LABEL[v.Status]}" to "${STATUS_LABEL[status]}"?`, doSave);
+  } else {
+    doSave();
+  }
+}
+
+/* =========================================================
+   ADMIN: DELETE JOB CARD (soft delete)
+   ========================================================= */
+function startDeleteJob(){
+  const v = vehicles.find(x=>String(x.JobID)===String(currentHistoryJobId));
+  if(!v) return;
+
+  showConfirm(`Delete jobcard #${v.JobID} (${v.VehicleNo})? This removes it from the app but keeps it in the Sheet.`, async () => {
+    const params = new URLSearchParams({
+      action: 'deleteJob', jobId: currentHistoryJobId,
+      username: currentUser ? currentUser.username : ''
+    });
+    try{
+      const res = await fetch(`${GAS_URL}?${params.toString()}`);
+      const data = await res.json();
+      if(data.success){
+        vehicles = vehicles.filter(x=>String(x.JobID)!==String(currentHistoryJobId));
+        showToast("Jobcard deleted");
+        closeHistoryModal();
+        render();
+      } else {
+        showToast(data.message || "Delete failed", true);
+      }
+    } catch(err){
+      showToast("Connection error: " + err.message, true);
+    }
+  });
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+function showToast(msg, isError){
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+/* =========================================================
+   CONFIRM DIALOG — accidental stage-change protection
+   Every status button (Start Work / Mark Finished / Deliver)
+   routes through here first. Nothing changes on the sheet
+   until the user explicitly taps "Yes, Confirm".
+   ========================================================= */
+function showConfirm(message, onConfirm){
+  const overlay = document.getElementById('confirmOverlay');
+  const yesBtn = document.getElementById('confirmYesBtn');
+  const noBtn = document.getElementById('confirmNoBtn');
+  document.getElementById('confirmMessage').textContent = message;
+
+  // Clone buttons to strip any previously-attached listeners
+  // (prevents old confirms from double-firing on repeated use)
+  const newYes = yesBtn.cloneNode(true);
+  const newNo = noBtn.cloneNode(true);
+  yesBtn.parentNode.replaceChild(newYes, yesBtn);
+  noBtn.parentNode.replaceChild(newNo, noBtn);
+
+  newYes.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+    onConfirm();
+  });
+  newNo.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+  });
+
+  overlay.classList.add('show');
+}
+
+// Allow Enter key on login
+document.getElementById('loginPin').addEventListener('keypress', e=>{
+  if(e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
