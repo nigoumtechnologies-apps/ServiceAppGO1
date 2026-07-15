@@ -233,6 +233,13 @@
     display:flex; align-items:center; justify-content:center;
   }
   .fab:active{transform:scale(0.94);}
+  .fab-upload{
+    position:fixed; bottom:88px; right:20px; z-index:30;
+    width:48px; height:48px; border-radius:50%; background:#6a4fb8; color:#fff;
+    border:none; font-size:19px; box-shadow:0 6px 18px rgba(0,0,0,0.4); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fab-upload:active{transform:scale(0.94);}
 
   /* ---------------- LIST ---------------- */
   .list{flex:1; padding:12px; padding-bottom:90px; display:flex; flex-direction:column; gap:10px;}
@@ -458,7 +465,7 @@
       <div class="user-chip">
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
-        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Bulk Upload (Excel)" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
+        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Jobcards Upload" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
         <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
         <div class="user-info">
           <div class="uname" id="userName">—</div>
@@ -494,6 +501,7 @@
   <div class="list" id="list"><div class="loading">Loading vehicles…</div></div>
 
   <button class="fab" onclick="openAddModal()">+</button>
+  <button class="fab-upload" id="fabUpload" onclick="toggleImport()" title="Jobcards Upload" style="display:none;">&#128229;</button>
 </div>
 
 <!-- ============ DASHBOARD OVERLAY ============ -->
@@ -527,19 +535,19 @@
   </div>
 </div>
 
-<!-- ============ DMS IMPORT OVERLAY (Admin only) ============ -->
+<!-- ============ JOBCARDS UPLOAD OVERLAY (Admin/Manager) ============ -->
 <div class="dashboard-overlay" id="importOverlay">
   <div class="dashboard-header">
-    <div class="dashboard-title">Bulk Upload — DMS Export</div>
+    <div class="dashboard-title">Jobcards Upload</div>
     <button class="dash-close-btn" onclick="toggleImport()">&times;</button>
   </div>
   <div class="dashboard-body">
     <div style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-      Upload the Job Card export file directly from your DMS — no reformatting needed.<br><br>
+      Upload the Job Card export file — no reformatting needed.<br><br>
       Existing Jobcard Numbers are skipped automatically, never overwritten.
     </div>
 
-    <div style="margin-top:6px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload DMS export file</div>
+    <div style="margin-top:6px; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--text-dim);">Upload export file</div>
     <input type="file" id="importFileInput" accept=".csv,.txt,.xlsx,.xls" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px; padding:12px; font-size:12.5px; color:var(--text);">
 
     <button class="btn-save" style="width:100%; margin-top:12px;" onclick="submitImport()" id="importSubmitBtn">Upload &amp; Import</button>
@@ -762,6 +770,7 @@ function enterApp(){
   // (vehicles tagged to them). This replaces the earlier design where
   // everyone shared the same tab set.
   const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
+  const isManager = (currentUser.role || "").toLowerCase() === "manager";
   const allChip = document.getElementById('allChip');
   const dashBtn = document.getElementById('dashBtn');
   const importBtn = document.getElementById('importBtn');
@@ -773,7 +782,6 @@ function enterApp(){
   if(!isAdmin){
     allChip.style.display = 'none';
     dashBtn.style.display = 'none';
-    importBtn.style.display = 'none';
     startChip.style.display = 'none';
     finishedChip.style.display = 'none';
     deliveredChip.style.display = ''; // Delivered is now visible to all users, not just Admin
@@ -784,12 +792,19 @@ function enterApp(){
   } else {
     allChip.style.display = '';
     dashBtn.style.display = '';
-    importBtn.style.display = '';
     startChip.style.display = '';
     finishedChip.style.display = '';
     deliveredChip.style.display = '';
     myAssignedChip.style.display = 'none';
   }
+
+  // Jobcards Upload is available to Admin AND Manager — a separate
+  // check from the rest of the Admin-only feature set above, since
+  // Manager otherwise keeps the plain Supervisor-style view. Manager
+  // has no Dashboard to find the bigger upload button in, so a floating
+  // shortcut button is also shown for them directly on the main list.
+  importBtn.style.display = (isAdmin || isManager) ? '' : 'none';
+  document.getElementById('fabUpload').style.display = (isAdmin || isManager) ? 'flex' : 'none';
 
   // Date range now defaults to today for everyone, and governs every
   // chip's results (not just intake). Users can widen it to see any
@@ -1561,7 +1576,7 @@ function renderDashboard(){
   const body = document.getElementById('dashboardBody');
   body.innerHTML = `
     <button class="btn-save" style="width:100%; margin-bottom:16px; background:#6a4fb8; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;" onclick="toggleDashboard(); toggleImport();">
-      &#128229; Bulk Upload — Excel
+      &#128229; Jobcards Upload
     </button>
     <div style="font-size:12px; color:var(--text-faint); margin-bottom:14px;">Showing: ${rangeLabel}</div>
     <div class="stat-grid">
