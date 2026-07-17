@@ -330,6 +330,12 @@
   .simple-stage-time{font-size:7.5px; color:#a39cd6; text-align:center; line-height:1.3; min-height:18px;}
   .simple-stage-time.done-time{color:#8ce0a8;}
 
+  .whatsapp-feedback-btn{
+    width:100%; background:#25D366; color:#fff; border:none; padding:10px;
+    font-size:12.5px; font-weight:800; display:flex; align-items:center;
+    justify-content:center; gap:6px; cursor:pointer;
+  }
+
   .simple-mechanic-inline{
     width:100%; background:#fff; border:1.5px solid #4a4470; border-radius:5px;
     padding:2px 3px; font-size:8px; font-weight:700; color:#1c2024; outline:none;
@@ -961,6 +967,62 @@ function todayDateStr(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+/* =========================================================
+   WHATSAPP DELIVERY FEEDBACK — tap-to-open (Admin/Manager/
+   Customer Care only, delivered vehicles only)
+   ========================================================= */
+
+// Builds the exact Tamil feedback message using this specific
+// jobcard's own Model, Vehicle No, delivered date, and Service Type —
+// same template as the backend's automatic version, kept here too so
+// this manual tap-to-send button works immediately, independent of
+// whether the Airtel IQ auto-send is wired up yet.
+// Builds a prefilled Google Form URL for this specific vehicle. The
+// form has a single combined field (entry.131326884) that expects
+// "JobID/Model/VehicleNo/ServiceType" all together, separated by "/" —
+// matching exactly how the form was designed, confirmed against the
+// real pre-filled link Gobinath generated.
+function buildPrefilledFeedbackFormUrl(v){
+  const formBaseUrl = "https://docs.google.com/forms/d/e/1FAIpQLSffuHr7b4yLTf944hXckzxPErWWn2Vb6qtUJPYHoC_l6MTqFQ/viewform";
+  const combinedValue = `${v.JobID||''}/${v.Model||''}/${v.VehicleNo||''}/${v.JobcardType||''}`;
+  return `${formBaseUrl}?usp=pp_url&entry.131326884=${encodeURIComponent(combinedValue)}`;
+}
+
+function buildWhatsAppFeedbackMessage(v){
+  const deliveredDateStr = (v.DeliveredTime||"").toString().slice(0,10);
+  let deliveredDateFormatted = "";
+  if(deliveredDateStr){
+    const [y,m,d] = deliveredDateStr.split('-');
+    deliveredDateFormatted = `${parseInt(d,10)}.${parseInt(m,10)}.${y}`;
+  }
+  const feedbackFormUrl = buildPrefilledFeedbackFormUrl(v);
+
+  return "வணக்கம்.\n" +
+    `Hero ஐயப்பன் ஏஜென்சி, குளித்தலை-யில் உங்கள் ${v.Model||''} ${v.VehicleNo||''} ` +
+    `வாகனத்திற்கு ${deliveredDateFormatted} அன்று ${v.JobcardType||''} சேவை வழங்கப்பட்டது.\n` +
+    "எங்கள் சேவை குறித்து உங்கள் கருத்தை பகிர்ந்து, சேவையை மதிப்பிட கீழே உள்ள இணைப்பைத் திறக்கவும்.\n" +
+    "📝 கருத்து பதிவு படிவம்:\n" +
+    feedbackFormUrl + "\n" +
+    "உங்கள் மதிப்புமிக்க கருத்துகள் எங்கள் சேவையை மேலும் மேம்படுத்த உதவும்.\n" +
+    "நன்றி!\n" +
+    "Hero ஐயப்பன் ஏஜென்சி, குளித்தலை";
+}
+
+function sendWhatsAppFeedback(jobId){
+  const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+  if(!v) return;
+
+  const phone = (v.Phone||"").toString().trim();
+  if(!phone || phone.length !== 10){
+    showToast("No valid phone number saved for this vehicle", true);
+    return;
+  }
+
+  const message = buildWhatsAppFeedbackMessage(v);
+  const waUrl = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+  window.open(waUrl, '_blank');
+}
+
 // Single source of truth for what each chip means, used by both
 // the counts in the filter bar and the actual list filtering —
 // keeps them from ever drifting out of sync with each other.
@@ -1065,6 +1127,15 @@ function renderAdminCard(v){
     .concat(supervisorNames.map(s=>`<option value="${s}" ${v.Supervisor===s?'selected':''}>${s}</option>`))
     .join('');
 
+  // WhatsApp feedback button — only for delivered vehicles, and only
+  // for roles allowed to contact customers directly (Admin, Manager,
+  // Customer Care). Everyone else never sees this button at all.
+  const role = (currentUser.role||"").toLowerCase();
+  const canSendFeedback = ['admin','manager','customer care'].includes(role);
+  const whatsAppBtn = (v.Status === 'delivered' && canSendFeedback)
+    ? `<button class="btn-status" style="background:#25D366; color:#fff; flex:0 0 auto; padding:9px 12px;" onclick="sendWhatsAppFeedback('${v.JobID}')" title="Send feedback request on WhatsApp">&#128241;</button>`
+    : '';
+
   return `
   <div class="card" data-status="${v.Status}">
     <div class="card-top" onclick="openHistoryModal('${v.JobID}')" style="cursor:pointer;">
@@ -1093,6 +1164,7 @@ function renderAdminCard(v){
     </div>` : ''}
     <div class="card-actions">
       ${actionBtn}
+      ${whatsAppBtn}
     </div>
   </div>`;
 }
@@ -1139,6 +1211,17 @@ function renderSimpleCard(v){
     ? `<div class="simple-stage-time done-time">${fmtTime(v.AssignedTime)}<br>${v.Mechanic||''}</div>`
     : `<div class="simple-stage-time"></div>`;
 
+  // WhatsApp feedback button — only for delivered vehicles, and only
+  // for roles allowed to contact customers directly (Admin, Manager,
+  // Customer Care). Mechanics/Supervisors never see this at all.
+  const role = (currentUser.role||"").toLowerCase();
+  const canSendFeedback = ['admin','manager','customer care'].includes(role);
+  const whatsAppStrip = (deliveredDone && canSendFeedback)
+    ? `<button class="whatsapp-feedback-btn" onclick="event.stopPropagation(); sendWhatsAppFeedback('${v.JobID}')">
+         &#128241; Send Feedback Request
+       </button>`
+    : '';
+
   return `
   <div class="card simple-card ${colorClass}" data-status="${v.Status}" onclick="openHistoryModal('${v.JobID}')">
     <div class="simple-card-body">
@@ -1181,6 +1264,7 @@ function renderSimpleCard(v){
         <div class="simple-stage-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>
       </div>
     </div>
+    ${whatsAppStrip}
   </div>`;
 }
 
