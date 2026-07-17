@@ -1018,6 +1018,13 @@ function sendWhatsAppFeedback(jobId){
     return;
   }
 
+  // wa.me links can only pre-fill text, not attach images — WhatsApp's
+  // deep-link format has no parameter for media. The poster image (with
+  // QR code / stars) needs to be attached manually by whoever sends
+  // this, from their phone's own gallery, before tapping Send in
+  // WhatsApp. This reminder fires every time so it's never forgotten.
+  showToast("Attach the feedback poster image in WhatsApp before sending", false);
+
   const message = buildWhatsAppFeedbackMessage(v);
   const waUrl = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, '_blank');
