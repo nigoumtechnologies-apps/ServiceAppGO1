@@ -397,11 +397,11 @@
   .modal-row-2{display:flex; gap:10px;}
   .modal-row-2 .modal-field{flex:1;}
   .modal-field label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px; display:block;}
-  .modal-field input, .modal-field select{
+  .modal-field input, .modal-field select, .modal-field textarea{
     width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:10px;
-    padding:12px 13px; font-size:15px; color:var(--text); outline:none;
+    padding:12px 13px; font-size:15px; color:var(--text); outline:none; font-family:inherit;
   }
-  .modal-field input:focus, .modal-field select:focus{border-color:var(--orange);}
+  .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus{border-color:var(--orange);}
   .modal-actions{display:flex; gap:10px; margin-top:6px;}
   .btn-cancel{flex:1; background:var(--steel); color:var(--text-dim); border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;}
   .btn-save{flex:2; background:var(--orange); color:#2e1500; border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:800; cursor:pointer;}
@@ -542,6 +542,15 @@
       &#128241; Share Report on WhatsApp
     </button>
   </div>
+</div>
+
+<!-- ============ ALL PENDING JOBCARDS OVERLAY (Admin/Manager) ============ -->
+<div class="dashboard-overlay" id="pendingJobcardsOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">All Pending Jobcards</div>
+    <button class="dash-close-btn" onclick="closePendingJobcardsView()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="pendingJobcardsBody"></div>
 </div>
 
 <!-- ============ JOBCARDS UPLOAD OVERLAY (Admin/Manager) ============ -->
@@ -726,6 +735,7 @@ let vehicles = [];
 let mechanicsList = [];
 let jobcardTypeList = [];
 let modelsList = [];
+let pendingReasonList = [];
 let currentUser = null;
 let activeFilter = "all";
 let searchTerm = "";
@@ -776,9 +786,10 @@ function enterApp(){
 
   // All, Working, Finished, and Delivered are now visible to every role
   // (previously Admin-only) — each still shows everyone's pending
-  // vehicles, same date-range rules as the other chips. Dashboard stays
-  // Admin-only. My Assigned (Supervisor's own handled jobcards) and the
-  // per-Supervisor-Name chips (Admin/Manager) are unaffected by this.
+  // vehicles, same date-range rules as the other chips. Dashboard is
+  // Admin/Manager only (needed for the All Pending Jobcards link). My
+  // Assigned (Supervisor's own handled jobcards) and the per-Supervisor-
+  // Name chips (Admin/Manager) are unaffected by this.
   const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
   const isManager = (currentUser.role || "").toLowerCase() === "manager";
   const isSupervisor = (currentUser.role || "").toLowerCase() === "supervisor";
@@ -795,7 +806,7 @@ function enterApp(){
   startChip.style.display = '';
   finishedChip.style.display = '';
   deliveredChip.style.display = '';
-  dashBtn.style.display = isAdmin ? '' : 'none';
+  dashBtn.style.display = (isAdmin || isManager) ? '' : 'none';
 
   // My Assigned + My Assigned (All) stay Supervisor-only — Admin/Manager
   // use the per-Supervisor-Name chips instead (rendered separately).
@@ -930,19 +941,7 @@ async function loadLists(){
       mechanicsList = data.lists.Mechanics || [];
       jobcardTypeList = data.lists.JobcardType || [];
       modelsList = data.lists.Models || [];
-
-      // Admin-set default for the date-range "From" field — read straight
-      // off the Lists sheet (add a "DefaultFromDate" column there with one
-      // date value, e.g. 2026-07-01). No UI needed; Admin edits the Sheet
-      // directly. Falls back to today (already set in enterApp) if absent.
-      // Only applied if the user hasn't already touched the From date.
-      const adminDefaultFrom = (data.lists.DefaultFromDate || [])[0];
-      if(adminDefaultFrom && !userTouchedFromDate){
-        const normalized = adminDefaultFrom.toString().slice(0,10);
-        filterFromDate = normalized;
-        document.getElementById('filterFromDate').value = normalized;
-        render();
-      }
+      pendingReasonList = data.lists.PendingReason || [];
 
       const mechSel = document.getElementById('newMechanic');
       mechSel.innerHTML = '<option value="">Not assigned yet</option>' +
@@ -955,6 +954,22 @@ async function loadLists(){
       const modelSel = document.getElementById('newModel');
       modelSel.innerHTML = '<option value="">Select model</option>' +
         modelsList.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+      // Admin-set default for the date-range "From" field — read straight
+      // off the Lists sheet (add a "DefaultFromDate" column there with one
+      // date value, e.g. 2026-07-01). No UI needed; Admin edits the Sheet
+      // directly. Falls back to today (already set in enterApp) if absent.
+      // Only applied if the user hasn't already touched the From date.
+      // No render() here — loadJobs() runs right after this in initApp()
+      // and renders with the correct date anyway; calling render() early
+      // was harmless on its own but risked masking dropdown population
+      // above if it ever threw, since one try/catch wrapped everything.
+      const adminDefaultFrom = (data.lists.DefaultFromDate || [])[0];
+      if(adminDefaultFrom && !userTouchedFromDate){
+        const normalized = adminDefaultFrom.toString().slice(0,10);
+        filterFromDate = normalized;
+        document.getElementById('filterFromDate').value = normalized;
+      }
     }
   } catch(err){
     showToast("Could not load setup lists", true);
@@ -1709,6 +1724,9 @@ function renderDashboard(){
 
   const body = document.getElementById('dashboardBody');
   body.innerHTML = `
+    <button class="btn-save" style="width:100%; margin-bottom:10px; background:#c0392b; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;" onclick="openPendingJobcardsView();">
+      &#9888; All Pending Jobcards
+    </button>
     <button class="btn-save" style="width:100%; margin-bottom:16px; background:#6a4fb8; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px;" onclick="toggleDashboard(); toggleImport();">
       &#128229; Jobcards Upload
     </button>
@@ -1747,8 +1765,98 @@ function renderDashboard(){
 }
 
 /* =========================================================
-   DAILY REPORT — visible to all users
+   ALL PENDING JOBCARDS (Admin/Manager) — every not-yet-delivered
+   jobcard across every Supervisor/Mechanic, with a Pending Reason
+   dropdown (sourced from the Lists sheet "PendingReason" column)
+   and a free-text Notes field, both saved per jobcard.
    ========================================================= */
+function openPendingJobcardsView(){
+  document.getElementById('dashboardOverlay').classList.remove('show');
+  document.getElementById('pendingJobcardsOverlay').classList.add('show');
+  renderPendingJobcardsView();
+}
+
+function closePendingJobcardsView(){
+  document.getElementById('pendingJobcardsOverlay').classList.remove('show');
+}
+
+function renderPendingJobcardsView(){
+  // Every not-yet-delivered jobcard, regardless of date range — this is
+  // meant to surface everything still open, not just today's/this
+  // period's intake, so it deliberately ignores filterFromDate/To.
+  const pending = vehicles
+    .filter(v => v.Status !== 'delivered')
+    .sort((a,b) => (a.IntakeDate||'').localeCompare(b.IntakeDate||''));
+
+  const reasonOptions = ['<option value="">Select reason</option>']
+    .concat(pendingReasonList.map(r => `<option value="${r}">${r}</option>`))
+    .join('');
+
+  const body = document.getElementById('pendingJobcardsBody');
+
+  if(pending.length === 0){
+    body.innerHTML = '<div style="color:var(--text-faint); font-size:12.5px;">No pending jobcards right now</div>';
+    return;
+  }
+
+  body.innerHTML = pending.map(v => `
+    <div class="supervisor-group" style="margin-bottom:12px;">
+      <div class="supervisor-group-name">
+        ${v.VehicleNo}
+        <span class="status-tag" data-status="${v.Status}" style="font-size:9px;">${STATUS_LABEL[v.Status]}</span>
+      </div>
+      <div style="font-size:11.5px; color:var(--text-faint); margin:2px 0 8px;">
+        ${v.CustomerName || 'No name'} • Intake: ${(v.IntakeDate||'').toString().slice(0,10)}${v.Supervisor ? ' • Supervisor: '+v.Supervisor : ''}
+      </div>
+      <div class="modal-field" style="margin-bottom:6px;">
+        <label style="font-size:11px;">Pending Reason</label>
+        <select id="pendingReason-${v.JobID}" onchange="savePendingInfo('${v.JobID}')">${reasonOptions}</select>
+      </div>
+      <div class="modal-field" style="margin-bottom:0;">
+        <label style="font-size:11px;">Notes</label>
+        <textarea id="pendingNotes-${v.JobID}" rows="2" placeholder="Manual note for this jobcard" onblur="savePendingInfo('${v.JobID}')" style="width:100%; resize:vertical;"></textarea>
+      </div>
+    </div>
+  `).join('');
+
+  // Fill in each field's current saved value after the HTML is in place
+  // (kept separate from the template string above for readability).
+  pending.forEach(v => {
+    const reasonSel = document.getElementById(`pendingReason-${v.JobID}`);
+    const notesEl = document.getElementById(`pendingNotes-${v.JobID}`);
+    if(reasonSel) reasonSel.value = v.PendingReason || '';
+    if(notesEl) notesEl.value = v.PendingNotes || '';
+  });
+}
+
+async function savePendingInfo(jobId){
+  const v = vehicles.find(x => String(x.JobID) === String(jobId));
+  if(!v) return;
+
+  const reasonSel = document.getElementById(`pendingReason-${jobId}`);
+  const notesEl = document.getElementById(`pendingNotes-${jobId}`);
+  const pendingReason = reasonSel ? reasonSel.value : '';
+  const pendingNotes = notesEl ? notesEl.value : '';
+
+  v.PendingReason = pendingReason;
+  v.PendingNotes = pendingNotes;
+
+  try{
+    const url = `${GAS_URL}?action=updatePendingInfo&jobId=${encodeURIComponent(jobId)}`
+      + `&pendingReason=${encodeURIComponent(pendingReason)}`
+      + `&pendingNotes=${encodeURIComponent(pendingNotes)}`
+      + `&username=${encodeURIComponent(currentUser ? currentUser.username : '')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.success){
+      showToast(data.message || "Could not save pending info", true);
+    }
+  } catch(err){
+    showToast("Could not save pending info", true);
+  }
+}
+
+
 function toggleReport(){
   const overlay = document.getElementById('reportOverlay');
   const isShowing = overlay.classList.toggle('show');
