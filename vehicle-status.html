@@ -223,6 +223,8 @@
   .chip[data-status="delivered"].active{background:var(--text-faint); color:var(--charcoal);}
   .chip[data-status="my_assigned"]{color:#6a4fb8;}
   .chip[data-status="my_assigned"].active{background:#6a4fb8; color:#fff;}
+  .chip[data-status="my_assigned_all"]{color:#6a4fb8;}
+  .chip[data-status="my_assigned_all"].active{background:#6a4fb8; color:#fff;}
   .chip-count{font-weight:900;}
 
   /* ---------------- FAB (Add Vehicle) ---------------- */
@@ -501,6 +503,7 @@
     <div class="chip" data-status="finished" id="finishedChip"><span class="dot"></span>Finished <span class="chip-count" id="count-finished">0</span></div>
     <div class="chip" data-status="delivered" id="deliveredChip"><span class="dot"></span>Delivered <span class="chip-count" id="count-delivered">0</span></div>
     <div class="chip" data-status="my_assigned" id="myAssignedChip" style="display:none;"><span class="dot"></span>My Assigned <span class="chip-count" id="count-my_assigned">0</span></div>
+    <div class="chip" data-status="my_assigned_all" id="myAssignedAllChip" style="display:none;"><span class="dot"></span>My Assigned (All) <span class="chip-count" id="count-my_assigned_all">0</span></div>
     <span id="supervisorChipsContainer" style="display:flex; gap:8px;"></span>
   </div>
 
@@ -729,6 +732,7 @@ let searchTerm = "";
 let isSubmitting = false;
 let filterFromDate = "";
 let filterToDate = "";
+let userTouchedFromDate = false; // once user manually picks a From date, stop applying the Admin default on future loadLists() calls
 
 const STATUS_FLOW = ["intake","assigned","start","finished","delivered"];
 const STATUS_LABEL = {intake:"Intake", assigned:"Assigned", start:"Work Start", finished:"Finished", delivered:"Delivered"};
@@ -770,13 +774,14 @@ function enterApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
 
-  // Restrict "All", Dashboard, and the old Working/Finished/Delivered
-  // tabs to Admin only. Non-admin (Supervisor/Mechanic) users now get
-  // a much simpler view: Previous Intake, Today Intake, and My Assigned
-  // (vehicles tagged to them). This replaces the earlier design where
-  // everyone shared the same tab set.
+  // All, Working, Finished, and Delivered are now visible to every role
+  // (previously Admin-only) — each still shows everyone's pending
+  // vehicles, same date-range rules as the other chips. Dashboard stays
+  // Admin-only. My Assigned (Supervisor's own handled jobcards) and the
+  // per-Supervisor-Name chips (Admin/Manager) are unaffected by this.
   const isAdmin = (currentUser.role || "").toLowerCase() === "admin";
   const isManager = (currentUser.role || "").toLowerCase() === "manager";
+  const isSupervisor = (currentUser.role || "").toLowerCase() === "supervisor";
   const allChip = document.getElementById('allChip');
   const dashBtn = document.getElementById('dashBtn');
   const importBtn = document.getElementById('importBtn');
@@ -784,24 +789,23 @@ function enterApp(){
   const finishedChip = document.getElementById('finishedChip');
   const deliveredChip = document.getElementById('deliveredChip');
   const myAssignedChip = document.getElementById('myAssignedChip');
+  const myAssignedAllChip = document.getElementById('myAssignedAllChip');
+
+  allChip.style.display = '';
+  startChip.style.display = '';
+  finishedChip.style.display = '';
+  deliveredChip.style.display = '';
+  dashBtn.style.display = isAdmin ? '' : 'none';
+
+  // My Assigned + My Assigned (All) stay Supervisor-only — Admin/Manager
+  // use the per-Supervisor-Name chips instead (rendered separately).
+  myAssignedChip.style.display = isSupervisor ? '' : 'none';
+  myAssignedAllChip.style.display = isSupervisor ? '' : 'none';
 
   if(!isAdmin){
-    allChip.style.display = 'none';
-    dashBtn.style.display = 'none';
-    startChip.style.display = 'none';
-    finishedChip.style.display = 'none';
-    deliveredChip.style.display = ''; // Delivered is now visible to all users, not just Admin
-    myAssignedChip.style.display = '';
     document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
     document.querySelector('.chip[data-status="intake_today"]').classList.add('active');
     activeFilter = 'intake_today';
-  } else {
-    allChip.style.display = '';
-    dashBtn.style.display = '';
-    startChip.style.display = '';
-    finishedChip.style.display = '';
-    deliveredChip.style.display = '';
-    myAssignedChip.style.display = 'none';
   }
 
   // Jobcards Upload is available to Admin AND Manager — a separate
@@ -815,9 +819,13 @@ function enterApp(){
   // Date range now defaults to today for everyone, and governs every
   // chip's results (not just intake). Users can widen it to see any
   // past period across Today Intake / Previous Intake / Delivered / etc.
+  // This is overridden by the Admin-configured default (Lists sheet
+  // "DefaultFromDate" column) once loadLists() returns, unless the user
+  // has already touched the From date themselves this session.
   const today = todayDateStr();
   filterFromDate = today;
   filterToDate = today;
+  userTouchedFromDate = false;
   document.getElementById('filterFromDate').value = today;
   document.getElementById('filterToDate').value = today;
 
@@ -879,13 +887,14 @@ async function loadStaff(){
 
 // Admin/Manager see one chip PER SUPERVISOR (e.g. "Arun", "Mahesh",
 // "Hari") instead of a single generic "My Assigned" chip — each shows
-// that specific Supervisor's currently-assigned (not yet delivered)
-// vehicles. Non-admin users never see these; they only get their own
-// "My Assigned" chip instead.
+// that specific Supervisor's full jobcard list (all statuses included).
+// Other roles never see these; Supervisors get their own "My Assigned"
+// chip instead.
 function renderSupervisorChips(){
-  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  const role = currentUser ? (currentUser.role||"").toLowerCase() : "";
+  const canSeeSupervisorChips = role === "admin" || role === "manager";
   const container = document.getElementById('supervisorChipsContainer');
-  if(!isAdmin || supervisorNames.length===0){
+  if(!canSeeSupervisorChips || supervisorNames.length===0){
     container.innerHTML = '';
     return;
   }
@@ -921,6 +930,19 @@ async function loadLists(){
       mechanicsList = data.lists.Mechanics || [];
       jobcardTypeList = data.lists.JobcardType || [];
       modelsList = data.lists.Models || [];
+
+      // Admin-set default for the date-range "From" field — read straight
+      // off the Lists sheet (add a "DefaultFromDate" column there with one
+      // date value, e.g. 2026-07-01). No UI needed; Admin edits the Sheet
+      // directly. Falls back to today (already set in enterApp) if absent.
+      // Only applied if the user hasn't already touched the From date.
+      const adminDefaultFrom = (data.lists.DefaultFromDate || [])[0];
+      if(adminDefaultFrom && !userTouchedFromDate){
+        const normalized = adminDefaultFrom.toString().slice(0,10);
+        filterFromDate = normalized;
+        document.getElementById('filterFromDate').value = normalized;
+        render();
+      }
 
       const mechSel = document.getElementById('newMechanic');
       mechSel.innerHTML = '<option value="">Not assigned yet</option>' +
@@ -1045,7 +1067,12 @@ function matchesFilter(v, filterKey){
     return (!filterFromDate || dateStr >= filterFromDate) && (!filterToDate || dateStr <= filterToDate);
   };
 
-  if(filterKey === "all") return true;
+  if(filterKey === "all"){
+    // "All" is now every role's pending list (intake/assigned/start/
+    // finished — not delivered), everyone's vehicles, scoped to the
+    // date range like every other chip. Delivered has its own chip.
+    return v.Status !== "delivered" && inRange(intakeDateStr);
+  }
   if(filterKey === "intake_today") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr === todayDateStr();
   if(filterKey === "intake_previous") return v.Status==="intake" && inRange(intakeDateStr) && intakeDateStr !== todayDateStr();
   if(filterKey === "delivered") return v.Status==="delivered" && inRange(deliveredDateStr);
@@ -1058,21 +1085,27 @@ function matchesFilter(v, filterKey){
     const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
     return myName && cardSupervisor === myName && v.Status !== "delivered" && inRange(intakeDateStr);
   }
+  if(filterKey === "my_assigned_all"){
+    // Same as My Assigned, but every status included (delivered too) —
+    // the Supervisor's full own-handled jobcard list.
+    const myName = currentUser ? (currentUser.fullName||"").trim().toLowerCase() : null;
+    const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
+    return myName && cardSupervisor === myName && inRange(intakeDateStr);
+  }
   if(filterKey.startsWith("supervisor:")){
-    // Admin-only per-supervisor chips — same "not yet delivered" scope
-    // as My Assigned, just for a specific named Supervisor instead of
-    // "whoever is currently logged in".
+    // Admin/Manager per-Supervisor-Name chips — every status included
+    // (delivered too), for a specific named Supervisor.
     const targetName = filterKey.slice("supervisor:".length).trim().toLowerCase();
     const cardSupervisor = (v.Supervisor||"").trim().toLowerCase();
-    return cardSupervisor === targetName && v.Status !== "delivered" && inRange(intakeDateStr);
+    return cardSupervisor === targetName && inRange(intakeDateStr);
   }
-  // start / finished — unchanged, straightforward status match
-  return v.Status === filterKey;
+  // start / finished — everyone's vehicles in that stage, date-range scoped
+  return v.Status === filterKey && inRange(intakeDateStr);
 }
 
 function updateCounts(){
   document.getElementById('count-all').textContent = vehicles.length;
-  ["intake_today","intake_previous","start","finished","delivered","my_assigned"].forEach(key=>{
+  ["intake_today","intake_previous","start","finished","delivered","my_assigned","my_assigned_all"].forEach(key=>{
     document.getElementById('count-'+key).textContent = vehicles.filter(v=>matchesFilter(v, key)).length;
   });
   // Per-supervisor chip counts (Admin only — element won't exist otherwise)
@@ -1085,16 +1118,24 @@ function updateCounts(){
 function render(){
   updateCounts();
   const listEl = document.getElementById('list');
+  const term = searchTerm.trim().toLowerCase();
+
+  // Searching now looks across every stage and every date, not just
+  // whatever chip/date-range is currently active — so typing a vehicle
+  // number always finds it, wherever (and whenever) it currently sits.
+  // With no search term, the active chip + date range apply as before.
   let filtered = vehicles.filter(v=>{
-    const matchesStatus = matchesFilter(v, activeFilter);
-    const term = searchTerm.trim().toLowerCase();
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
       String(v.JobID||"").toLowerCase().includes(term);
+    if(!matchesSearch) return false;
+    if(term) return true; // search overrides chip + date range entirely
+
+    const matchesStatus = matchesFilter(v, activeFilter);
     const vDate = (v.IntakeDate||"").toString().slice(0,10);
     const matchesFrom = !filterFromDate || vDate >= filterFromDate;
     const matchesTo = !filterToDate || vDate <= filterToDate;
-    return matchesStatus && matchesSearch && matchesFrom && matchesTo;
+    return matchesStatus && matchesFrom && matchesTo;
   });
 
   const order = {intake:0, start:1, finished:2, delivered:3};
@@ -1587,6 +1628,7 @@ document.getElementById('filters').addEventListener('click', e=>{
 });
 document.getElementById('filterFromDate').addEventListener('change', e=>{
   filterFromDate = e.target.value;
+  userTouchedFromDate = true;
   render();
 });
 document.getElementById('filterToDate').addEventListener('change', e=>{
@@ -1596,6 +1638,7 @@ document.getElementById('filterToDate').addEventListener('change', e=>{
 document.getElementById('dateRangeClearBtn').addEventListener('click', ()=>{
   filterFromDate = '';
   filterToDate = '';
+  userTouchedFromDate = true; // explicit clear counts as a manual choice too
   document.getElementById('filterFromDate').value = '';
   document.getElementById('filterToDate').value = '';
   render();
