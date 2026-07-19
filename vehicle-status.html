@@ -940,7 +940,8 @@ async function loadLists(){
     if(data.success){
       mechanicsList = data.lists.Mechanics || [];
       jobcardTypeList = data.lists.JobcardType || [];
-      modelsList = data.lists.Models || [];
+      // Sheet header is "Model" (singular) — matches your Lists tab exactly.
+      modelsList = data.lists.Model || [];
       pendingReasonList = data.lists.PendingReason || [];
 
       const mechSel = document.getElementById('newMechanic');
