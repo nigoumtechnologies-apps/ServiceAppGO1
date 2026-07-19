@@ -2131,6 +2131,35 @@ function normalizeDmsDate(value){
   return normalizeExcelDate(raw);
 }
 
+// Splits a DMS "Estimated Delivery Time" cell — a full datetime like
+// 20/07/2026 05:58:58 PM — into { date: "2026-07-20", time: "17:58" }
+// for the EstDeliveryDate / EstDeliveryTime columns. Reuses
+// normalizeDmsDate for the date part; only handles the time part here.
+// Returns { date:"", time:"" } if the cell is blank or unparseable, so
+// a bad value never blocks the rest of that row's import.
+function splitDmsEstDeliveryDateTime(value){
+  if(!value) return { date: "", time: "" };
+  const raw = String(value).trim().replace(/^"|"$/g, '');
+
+  const dateMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const date = dateMatch
+    ? `${dateMatch[3]}-${String(dateMatch[2]).padStart(2,'0')}-${String(dateMatch[1]).padStart(2,'0')}`
+    : "";
+
+  const timeMatch = raw.match(/(\d{1,2}):(\d{2}):\d{2}\s*(AM|PM)/i);
+  let time = "";
+  if(timeMatch){
+    let hour = parseInt(timeMatch[1], 10);
+    const minute = timeMatch[2];
+    const meridiem = timeMatch[3].toUpperCase();
+    if(meridiem === 'PM' && hour !== 12) hour += 12;
+    if(meridiem === 'AM' && hour === 12) hour = 0;
+    time = `${String(hour).padStart(2,'0')}:${minute}`;
+  }
+
+  return { date, time };
+}
+
 // Extracts just the last numeric segment from a full DMS Job Card
 // number, e.g. "21643-02-RJC-0726-2454" -> "2454" — this becomes our
 // app's Jobcard Number, matching the short numbering staff already use.
@@ -2208,12 +2237,14 @@ async function submitImport(){
     //   5 Job Card Open Date -> Intake Date
     //   6 Job Card Type      -> Service Type
     //   7 Model
-    //   8 Estimated Delivery Time — and everything after column I (index 8)
-    //     is intentionally ignored, per requirement.
+    //   8 Estimated Delivery Time -> split into EstDeliveryDate +
+    //     EstDeliveryTime. Everything after column I (index 8) is still
+    //     intentionally ignored, per requirement.
     const rows = dataRows.map(r => {
       const firstName = stripQuotes(r[2]);
       const lastName = stripQuotes(r[3]);
       const customerName = [firstName, lastName].filter(Boolean).join(' ').trim();
+      const estDelivery = splitDmsEstDeliveryDateTime(r[8]);
 
       return [
         extractJobIdFromDmsNumber(r[0]),              // Jobcard No (short form)
@@ -2222,7 +2253,9 @@ async function submitImport(){
         stripQuotes(r[7]),                             // Model
         normalizeDmsDate(r[5]),                        // Intake Date
         customerName,                                  // Customer Name (First + Last)
-        stripQuotes(r[4])                              // Mobile Number
+        stripQuotes(r[4]),                             // Mobile Number
+        estDelivery.date,                              // Estimated Delivery Date
+        estDelivery.time                               // Estimated Delivery Time
       ];
     });
 
