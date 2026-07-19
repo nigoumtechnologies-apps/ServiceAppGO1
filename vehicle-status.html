@@ -369,6 +369,70 @@
   .tick-icon{font-size:18px; flex:0 0 20px;}
   .tick-label{flex:1;}
   .tick-sub{font-size:11.5px; opacity:0.75; font-weight:700;}
+
+  /* ---------------- GRID VIEW (centralized tick table) ---------------- *
+   * Wider than the normal 480px mobile shell — this is a dense table,
+   * meant to show many jobcards at once, so it uses the available
+   * screen width instead of staying phone-card-narrow. Still scrolls
+   * fine on a phone (table scrolls horizontally + vertically). */
+  .grid-view-overlay{max-width:1100px;}
+  .grid-view-summary{
+    display:flex; gap:8px; padding:10px 12px; overflow-x:auto;
+    background:var(--charcoal-2); border-bottom:1.5px solid var(--steel-line);
+    flex:0 0 auto;
+  }
+  .grid-summary-chip{
+    flex:0 0 auto; display:flex; flex-direction:column; align-items:center;
+    padding:6px 14px; border-radius:9px; background:var(--charcoal); border:1.5px solid var(--steel-line);
+    min-width:64px;
+  }
+  .grid-summary-chip .gsc-value{font-size:16px; font-weight:900; color:var(--text);}
+  .grid-summary-chip .gsc-label{font-size:9px; font-weight:700; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.3px; margin-top:1px;}
+  .grid-summary-chip.intake .gsc-value{color:var(--amber);}
+  .grid-summary-chip.start .gsc-value{color:var(--orange);}
+  .grid-summary-chip.finished .gsc-value{color:var(--teal);}
+  .grid-summary-chip.delivered .gsc-value{color:#6a4fb8;}
+
+  .grid-view-scroll{flex:1; overflow:auto; -webkit-overflow-scrolling:touch;}
+  .grid-view-table{width:100%; border-collapse:collapse; font-size:12px; min-width:640px;}
+  .grid-view-table thead th{
+    position:sticky; top:0; z-index:5; background:#1a1440; color:#fff;
+    font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.2px;
+    padding:9px 6px; text-align:center; border-bottom:2px solid var(--orange);
+    line-height:1.4;
+  }
+  .grid-view-table .gv-col-sno{width:36px;}
+  .grid-view-table .gv-col-info{min-width:120px; text-align:left;}
+  .grid-view-table .gv-col-tick{width:80px;}
+
+  /* Two physical <tr> rows per jobcard (info row + tick row), grouped
+     visually as one unit via a shared top border + alternating tint so
+     each jobcard is easy to tell apart from its neighbors while scrolling. */
+  .gv-group-even .gv-info-row, .gv-group-even .gv-tick-row{background:var(--charcoal);}
+  .gv-group-odd .gv-info-row, .gv-group-odd .gv-tick-row{background:#f4f1fb;}
+  .gv-info-row td{border-top:2px solid var(--orange); padding:7px 6px; vertical-align:top;}
+  .gv-tick-row td{padding:5px 6px 9px; vertical-align:top;}
+  .gv-sno{
+    font-size:13px; font-weight:900; color:var(--text-dim); text-align:center;
+    padding-top:9px !important;
+  }
+  .gv-info-primary{font-size:12.5px; font-weight:800; color:var(--text);}
+  .gv-info-secondary{font-size:10.5px; color:var(--text-faint); margin-top:1px;}
+
+  .gv-tick-box{
+    width:24px; height:24px; border-radius:6px; border:2px solid var(--steel-line);
+    display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:900;
+    background:transparent; color:#fff; margin:0 auto;
+  }
+  .gv-tick-box.done{background:var(--teal); border-color:var(--teal);}
+  .gv-tick-box.clickable{border-color:var(--orange); cursor:pointer;}
+  .gv-tick-time{font-size:9px; color:var(--text-faint); text-align:center; margin-top:3px; line-height:1.3;}
+  .gv-tick-time.done-time{color:var(--teal); font-weight:700;}
+  .gv-mechanic-select{
+    width:100%; max-width:78px; background:var(--steel); border:1.5px solid var(--steel-line);
+    border-radius:5px; padding:3px 2px; font-size:9px; font-weight:700; color:var(--text); outline:none;
+  }
+
   .mechanic-select{
     flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
     padding:8px 10px; font-size:12.5px; color:var(--text); outline:none;
@@ -471,6 +535,7 @@
         </div>
       </div>
       <div class="user-chip">
+        <button class="dash-btn" id="gridViewBtn" onclick="openGridView()" title="Grid View">&#9638;</button>
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
         <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Jobcards Upload" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
@@ -511,6 +576,32 @@
 
   <button class="fab" onclick="openAddModal()">+</button>
   <button class="fab-upload" id="fabUpload" onclick="toggleImport()" title="Jobcards Upload" style="display:none;">&#128229;</button>
+</div>
+
+<!-- ============ GRID VIEW OVERLAY (all users) ============ -->
+<div class="dashboard-overlay grid-view-overlay" id="gridViewOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Grid View</div>
+    <button class="dash-close-btn" onclick="closeGridView()">&times;</button>
+  </div>
+  <div class="grid-view-summary" id="gridViewSummary"></div>
+  <div class="grid-view-scroll" id="gridViewScroll">
+    <table class="grid-view-table">
+      <thead>
+        <tr>
+          <th class="gv-col-sno">Sno</th>
+          <th class="gv-col-info">JobID<br>VehicleNo</th>
+          <th class="gv-col-info">JobcardType<br>Model</th>
+          <th class="gv-col-info">IntakeDate<br>EstDeliveryDate</th>
+          <th class="gv-col-tick">Assigned</th>
+          <th class="gv-col-tick">Start</th>
+          <th class="gv-col-tick">Completed</th>
+          <th class="gv-col-tick">Delivered</th>
+        </tr>
+      </thead>
+      <tbody id="gridViewBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- ============ DASHBOARD OVERLAY ============ -->
@@ -1131,15 +1222,12 @@ function updateCounts(){
   });
 }
 
-function render(){
-  updateCounts();
-  const listEl = document.getElementById('list');
+// Shared by both the card list (render) and the Grid View overlay — same
+// search/filter/date-range rules apply to both, so the two views are
+// always perfectly in sync with each other and with the chip counts.
+function getFilteredVehicles(){
   const term = searchTerm.trim().toLowerCase();
 
-  // Searching now looks across every stage and every date, not just
-  // whatever chip/date-range is currently active — so typing a vehicle
-  // number always finds it, wherever (and whenever) it currently sits.
-  // With no search term, the active chip + date range apply as before.
   let filtered = vehicles.filter(v=>{
     const matchesSearch = !term ||
       (v.VehicleNo||"").toLowerCase().includes(term) ||
@@ -1156,6 +1244,13 @@ function render(){
 
   const order = {intake:0, start:1, finished:2, delivered:3};
   filtered.sort((a,b)=>order[a.Status]-order[b.Status]);
+  return filtered;
+}
+
+function render(){
+  updateCounts();
+  const listEl = document.getElementById('list');
+  const filtered = getFilteredVehicles();
 
   if(filtered.length===0){
     listEl.innerHTML = `<div class="empty-state"><div class="icon">&#128269;</div><p>No vehicles found</p></div>`;
@@ -1163,6 +1258,13 @@ function render(){
   }
 
   listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
+
+  // Grid View overlay stays live in the background — if it's open, keep
+  // it in sync with every render() call (status ticks, search, filters).
+  const gridOverlay = document.getElementById('gridViewOverlay');
+  if(gridOverlay && gridOverlay.classList.contains('show')){
+    renderGridView();
+  }
 }
 
 /* ---------------- ADMIN CARD (full detail, unchanged from before) ---------------- */
@@ -1330,6 +1432,100 @@ function renderSimpleCard(v){
     </div>
     ${whatsAppStrip}
   </div>`;
+}
+
+/* =========================================================
+   GRID VIEW — centralized, combined tick-update table.
+   Same jobcards, same search/filter/date-range rules, same tick
+   actions (tickAssignMechanic / tickAdvance) as the card list above —
+   just laid out as a compact scrolling table (2 rows per jobcard)
+   instead of stacked cards, so many jobcards fit on screen at once.
+   ========================================================= */
+function openGridView(){
+  document.getElementById('gridViewOverlay').classList.add('show');
+  renderGridView();
+}
+
+function closeGridView(){
+  document.getElementById('gridViewOverlay').classList.remove('show');
+}
+
+function renderGridView(){
+  const overlay = document.getElementById('gridViewOverlay');
+  if(!overlay.classList.contains('show')) return; // don't do the work while hidden
+
+  const filtered = getFilteredVehicles();
+
+  // Summary strip — counts within the CURRENT filtered set (respects
+  // whatever search/chip/date-range is active), so it always describes
+  // exactly what's in the table below it, not the whole database.
+  const summaryEl = document.getElementById('gridViewSummary');
+  const counts = {intake:0, assigned:0, start:0, finished:0, delivered:0};
+  filtered.forEach(v=>{ if(counts[v.Status] !== undefined) counts[v.Status]++; });
+  summaryEl.innerHTML = `
+    <div class="grid-summary-chip total"><div class="gsc-value">${filtered.length}</div><div class="gsc-label">Total</div></div>
+    <div class="grid-summary-chip intake"><div class="gsc-value">${counts.intake + counts.assigned}</div><div class="gsc-label">Pending Start</div></div>
+    <div class="grid-summary-chip start"><div class="gsc-value">${counts.start}</div><div class="gsc-label">Working</div></div>
+    <div class="grid-summary-chip finished"><div class="gsc-value">${counts.finished}</div><div class="gsc-label">Finished</div></div>
+    <div class="grid-summary-chip delivered"><div class="gsc-value">${counts.delivered}</div><div class="gsc-label">Delivered</div></div>
+  `;
+
+  const bodyEl = document.getElementById('gridViewBody');
+  if(filtered.length === 0){
+    bodyEl.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-faint);">No vehicles found</td></tr>`;
+    return;
+  }
+
+  const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
+
+  bodyEl.innerHTML = filtered.map((v, idx) => {
+    const groupClass = idx % 2 === 0 ? 'gv-group-even' : 'gv-group-odd';
+    const sno = idx + 1;
+
+    const assignedDone = ['assigned','start','finished','delivered'].includes(v.Status);
+    const startDone = ['start','finished','delivered'].includes(v.Status);
+    const finishedDone = ['finished','delivered'].includes(v.Status);
+    const deliveredDone = v.Status === 'delivered';
+
+    const startClickable = assignedDone && !startDone;
+    const finishedClickable = startDone && !finishedDone;
+    const deliveredClickable = finishedDone && !deliveredDone;
+
+    const mechanicOptions = ['<option value="">Assign</option>']
+      .concat(mechanicsList.map(m=>`<option value="${m}" ${v.Mechanic===m?'selected':''}>${m}</option>`))
+      .join('');
+
+    const assignedCell = assignedDone
+      ? `<div class="gv-tick-box done">&#10003;</div><div class="gv-tick-time done-time">${fmtTime(v.AssignedTime)}<br>${v.Mechanic||''}</div>`
+      : `<select class="gv-mechanic-select" onchange="tickAssignMechanic('${v.JobID}', this.value)">${mechanicOptions}</select>`;
+
+    const startCell = `<div class="gv-tick-box ${startDone?'done':(startClickable?'clickable':'')}"
+         ${startClickable?`onclick="tickAdvance('${v.JobID}','start')"`:''}>${startDone?'&#10003;':''}</div>
+         <div class="gv-tick-time ${startDone?'done-time':''}">${fmtTime(v.StartTime)}</div>`;
+
+    const finishedCell = `<div class="gv-tick-box ${finishedDone?'done':(finishedClickable?'clickable':'')}"
+         ${finishedClickable?`onclick="tickAdvance('${v.JobID}','finished')"`:''}>${finishedDone?'&#10003;':''}</div>
+         <div class="gv-tick-time ${finishedDone?'done-time':''}">${fmtTime(v.FinishTime)}</div>`;
+
+    const deliveredCell = `<div class="gv-tick-box ${deliveredDone?'done':(deliveredClickable?'clickable':'')}"
+         ${deliveredClickable?`onclick="tickAdvance('${v.JobID}','delivered')"`:''}>${deliveredDone?'&#10003;':''}</div>
+         <div class="gv-tick-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>`;
+
+    return `
+    <tr class="gv-info-row ${groupClass}">
+      <td class="gv-sno" rowspan="2">${sno}</td>
+      <td><div class="gv-info-primary">${v.JobID}</div><div class="gv-info-secondary">${v.VehicleNo}</div></td>
+      <td><div class="gv-info-primary">${v.JobcardType||''}</div><div class="gv-info-secondary">${v.Model||''}</div></td>
+      <td><div class="gv-info-primary">${(v.IntakeDate||'').toString().slice(0,10)}</div><div class="gv-info-secondary">${v.EstDeliveryDate ? (v.EstDeliveryDate.toString().slice(0,10)) : ''}</div></td>
+      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${assignedCell}</td>
+      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${startCell}</td>
+      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${finishedCell}</td>
+      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${deliveredCell}</td>
+    </tr>
+    <tr class="gv-tick-row ${groupClass}">
+      <td colspan="3" style="padding-top:0;"><div class="gv-info-secondary">${v.CustomerName||''}</div></td>
+    </tr>`;
+  }).join('');
 }
 
 /* =========================================================
