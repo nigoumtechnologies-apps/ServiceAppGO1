@@ -376,6 +376,10 @@
    * screen width instead of staying phone-card-narrow. Still scrolls
    * fine on a phone (table scrolls horizontally + vertically). */
   .grid-view-overlay{max-width:1100px;}
+
+  .grid-view-search-wrap{margin:10px 12px 0;}
+  .grid-view-filters{padding:8px 12px;}
+
   .grid-view-summary{
     display:flex; gap:8px; padding:10px 12px; overflow-x:auto;
     background:var(--charcoal-2); border-bottom:1.5px solid var(--steel-line);
@@ -396,26 +400,35 @@
   .grid-view-scroll{flex:1; overflow:auto; -webkit-overflow-scrolling:touch;}
   .grid-view-table{width:100%; border-collapse:collapse; font-size:12px; min-width:640px;}
   .grid-view-table thead th{
-    position:sticky; top:0; z-index:5; background:#1a1440; color:#fff;
+    position:sticky; top:0; z-index:6; background:#1a1440; color:#fff;
     font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.2px;
     padding:9px 6px; text-align:center; border-bottom:2px solid var(--orange);
     line-height:1.4;
   }
-  .grid-view-table .gv-col-sno{width:36px;}
+  .grid-view-table .gv-col-sno{width:36px; min-width:36px; max-width:36px;}
   .grid-view-table .gv-col-info{min-width:120px; text-align:left;}
   .grid-view-table .gv-col-tick{width:80px;}
 
-  /* Two physical <tr> rows per jobcard (info row + tick row), grouped
-     visually as one unit via a shared top border + alternating tint so
-     each jobcard is easy to tell apart from its neighbors while scrolling. */
-  .gv-group-even .gv-info-row, .gv-group-even .gv-tick-row{background:var(--charcoal);}
-  .gv-group-odd .gv-info-row, .gv-group-odd .gv-tick-row{background:#f4f1fb;}
-  .gv-info-row td{border-top:2px solid var(--orange); padding:7px 6px; vertical-align:top;}
-  .gv-tick-row td{padding:5px 6px 9px; vertical-align:top;}
-  .gv-sno{
-    font-size:13px; font-weight:900; color:var(--text-dim); text-align:center;
-    padding-top:9px !important;
-  }
+  /* Frozen columns — Sno and JobID/VehicleNo stay visible while the
+     table scrolls horizontally. z-index 7 on header (above the sticky
+     top row's z-index 6) and 4 on body cells (above normal cells but
+     below the confirm modal etc). Left offset for column 2 = column
+     1's width, kept in sync with .gv-col-sno's fixed width above. */
+  .gv-frozen{position:sticky; z-index:4;}
+  th.gv-frozen{z-index:7;}
+  .gv-frozen-1{left:0; width:36px; min-width:36px; max-width:36px;}
+  .gv-frozen-2{left:36px; box-shadow:2px 0 4px rgba(0,0,0,0.08);}
+  th.gv-frozen-1, th.gv-frozen-2{background:#1a1440;}
+  tr.gv-row-even td.gv-frozen{background:var(--charcoal);}
+  tr.gv-row-odd td.gv-frozen{background:#f4f1fb;}
+
+  /* One physical <tr> per jobcard now (Customer Name row removed per
+     requirement) — alternating tint still tells adjacent jobcards apart
+     while scrolling, plus a top border between each. */
+  tr.gv-row-even td{background:var(--charcoal);}
+  tr.gv-row-odd td{background:#f4f1fb;}
+  .gv-row td{border-top:2px solid var(--orange); padding:7px 6px; vertical-align:middle;}
+  .gv-sno{font-size:13px; font-weight:900; color:var(--text-dim); text-align:center;}
   .gv-info-primary{font-size:12.5px; font-weight:800; color:var(--text);}
   .gv-info-secondary{font-size:10.5px; color:var(--text-faint); margin-top:1px;}
 
@@ -584,13 +597,19 @@
     <div class="dashboard-title">Grid View</div>
     <button class="dash-close-btn" onclick="closeGridView()">&times;</button>
   </div>
+  <div class="search-wrap grid-view-search-wrap">
+    <span class="search-icon">&#128269;</span>
+    <input type="text" class="search-input" id="gridSearchInput" placeholder="Search vehicle number or jobcard no.">
+    <button class="search-clear" id="gridClearBtn">&times;</button>
+  </div>
+  <div class="filters grid-view-filters" id="gridFilters"></div>
   <div class="grid-view-summary" id="gridViewSummary"></div>
   <div class="grid-view-scroll" id="gridViewScroll">
     <table class="grid-view-table">
       <thead>
         <tr>
-          <th class="gv-col-sno">Sno</th>
-          <th class="gv-col-info">JobID<br>VehicleNo</th>
+          <th class="gv-col-sno gv-frozen gv-frozen-1">Sno</th>
+          <th class="gv-col-info gv-frozen gv-frozen-2">JobID<br>VehicleNo</th>
           <th class="gv-col-info">JobcardType<br>Model</th>
           <th class="gv-col-info">IntakeDate<br>EstDeliveryDate</th>
           <th class="gv-col-tick">Assigned</th>
@@ -600,6 +619,7 @@
         </tr>
       </thead>
       <tbody id="gridViewBody"></tbody>
+
     </table>
   </div>
 </div>
@@ -1254,10 +1274,9 @@ function render(){
 
   if(filtered.length===0){
     listEl.innerHTML = `<div class="empty-state"><div class="icon">&#128269;</div><p>No vehicles found</p></div>`;
-    return;
+  } else {
+    listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
   }
-
-  listEl.innerHTML = filtered.map(v=>renderSimpleCard(v)).join('');
 
   // Grid View overlay stays live in the background — if it's open, keep
   // it in sync with every render() call (status ticks, search, filters).
@@ -1438,11 +1457,20 @@ function renderSimpleCard(v){
    GRID VIEW — centralized, combined tick-update table.
    Same jobcards, same search/filter/date-range rules, same tick
    actions (tickAssignMechanic / tickAdvance) as the card list above —
-   just laid out as a compact scrolling table (2 rows per jobcard)
+   just laid out as a compact scrolling table (1 row per jobcard)
    instead of stacked cards, so many jobcards fit on screen at once.
+
+   The chip bar here is not a second copy of the filter logic — it's
+   built by cloning the main screen's #filters bar (which enterApp()
+   already shows/hides correctly per role), so Grid View always shows
+   exactly the same stage-wise tags a given user sees on the main
+   screen, with zero duplicated role rules.
    ========================================================= */
 function openGridView(){
   document.getElementById('gridViewOverlay').classList.add('show');
+  syncGridFilterBar();
+  document.getElementById('gridSearchInput').value = searchTerm;
+  document.getElementById('gridClearBtn').classList.toggle('show', searchTerm.length>0);
   renderGridView();
 }
 
@@ -1450,9 +1478,29 @@ function closeGridView(){
   document.getElementById('gridViewOverlay').classList.remove('show');
 }
 
+// Rebuilds the Grid View's own chip bar from the main filter bar's
+// current (already role-filtered) HTML, so the two never drift apart.
+// Called on open, and again any time a chip is clicked in either bar.
+function syncGridFilterBar(){
+  const mainFilters = document.getElementById('filters');
+  const gridFilters = document.getElementById('gridFilters');
+  gridFilters.innerHTML = mainFilters.innerHTML;
+  // Strip duplicate id="..." attributes from the clone — ids must stay
+  // unique in the document; the clone only ever needs the shared
+  // data-status/class for click handling and the active-state styling.
+  gridFilters.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+}
+
 function renderGridView(){
   const overlay = document.getElementById('gridViewOverlay');
   if(!overlay.classList.contains('show')) return; // don't do the work while hidden
+
+  // Re-clone the chip bar every render so its counts stay current —
+  // updateCounts() (called from render(), right before this runs)
+  // only updates the main bar's id'd spans, and the clone's ids were
+  // stripped to stay unique, so a fresh clone is the simplest way to
+  // keep both bars showing the same numbers.
+  syncGridFilterBar();
 
   const filtered = getFilteredVehicles();
 
@@ -1479,7 +1527,7 @@ function renderGridView(){
   const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
 
   bodyEl.innerHTML = filtered.map((v, idx) => {
-    const groupClass = idx % 2 === 0 ? 'gv-group-even' : 'gv-group-odd';
+    const rowClass = idx % 2 === 0 ? 'gv-row-even' : 'gv-row-odd';
     const sno = idx + 1;
 
     const assignedDone = ['assigned','start','finished','delivered'].includes(v.Status);
@@ -1512,18 +1560,15 @@ function renderGridView(){
          <div class="gv-tick-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>`;
 
     return `
-    <tr class="gv-info-row ${groupClass}">
-      <td class="gv-sno" rowspan="2">${sno}</td>
-      <td><div class="gv-info-primary">${v.JobID}</div><div class="gv-info-secondary">${v.VehicleNo}</div></td>
+    <tr class="gv-row ${rowClass}">
+      <td class="gv-sno gv-frozen gv-frozen-1">${sno}</td>
+      <td class="gv-frozen gv-frozen-2"><div class="gv-info-primary">${v.JobID}</div><div class="gv-info-secondary">${v.VehicleNo}</div></td>
       <td><div class="gv-info-primary">${v.JobcardType||''}</div><div class="gv-info-secondary">${v.Model||''}</div></td>
       <td><div class="gv-info-primary">${(v.IntakeDate||'').toString().slice(0,10)}</div><div class="gv-info-secondary">${v.EstDeliveryDate ? (v.EstDeliveryDate.toString().slice(0,10)) : ''}</div></td>
-      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${assignedCell}</td>
-      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${startCell}</td>
-      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${finishedCell}</td>
-      <td class="gv-col-tick" rowspan="2" style="text-align:center; vertical-align:middle;">${deliveredCell}</td>
-    </tr>
-    <tr class="gv-tick-row ${groupClass}">
-      <td colspan="3" style="padding-top:0;"><div class="gv-info-secondary">${v.CustomerName||''}</div></td>
+      <td class="gv-col-tick" style="text-align:center;">${assignedCell}</td>
+      <td class="gv-col-tick" style="text-align:center;">${startCell}</td>
+      <td class="gv-col-tick" style="text-align:center;">${finishedCell}</td>
+      <td class="gv-col-tick" style="text-align:center;">${deliveredCell}</td>
     </tr>`;
   }).join('');
 }
@@ -1819,24 +1864,51 @@ async function submitNewVehicle(){
 /* =========================================================
    SEARCH & FILTER
    ========================================================= */
-document.getElementById('searchInput').addEventListener('input', e=>{
-  searchTerm = e.target.value;
-  document.getElementById('clearBtn').classList.toggle('show', searchTerm.length>0);
+// Shared by the main search bar and the Grid View's own search bar —
+// keeps both inputs and both clear buttons in sync no matter which one
+// the user typed into.
+function setSearchTerm(value){
+  searchTerm = value;
+  const mainInput = document.getElementById('searchInput');
+  const gridInput = document.getElementById('gridSearchInput');
+  if(mainInput.value !== value) mainInput.value = value;
+  if(gridInput.value !== value) gridInput.value = value;
+  document.getElementById('clearBtn').classList.toggle('show', value.length>0);
+  document.getElementById('gridClearBtn').classList.toggle('show', value.length>0);
   render();
+}
+
+// Shared by the main chip bar and the Grid View's cloned chip bar —
+// applies the chosen filter and re-syncs the Grid View's chip clone so
+// its "active" highlight matches, whichever bar was clicked.
+function setActiveFilter(status){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll(`.chip[data-status="${status}"]`).forEach(c=>c.classList.add('active'));
+  activeFilter = status;
+  render();
+}
+
+document.getElementById('searchInput').addEventListener('input', e=>{
+  setSearchTerm(e.target.value);
 });
 document.getElementById('clearBtn').addEventListener('click', ()=>{
-  document.getElementById('searchInput').value='';
-  searchTerm='';
-  document.getElementById('clearBtn').classList.remove('show');
-  render();
+  setSearchTerm('');
+});
+document.getElementById('gridSearchInput').addEventListener('input', e=>{
+  setSearchTerm(e.target.value);
+});
+document.getElementById('gridClearBtn').addEventListener('click', ()=>{
+  setSearchTerm('');
 });
 document.getElementById('filters').addEventListener('click', e=>{
   const chip = e.target.closest('.chip');
   if(!chip) return;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  chip.classList.add('active');
-  activeFilter = chip.dataset.status;
-  render();
+  setActiveFilter(chip.dataset.status);
+});
+document.getElementById('gridFilters').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  setActiveFilter(chip.dataset.status);
 });
 document.getElementById('filterFromDate').addEventListener('change', e=>{
   filterFromDate = e.target.value;
