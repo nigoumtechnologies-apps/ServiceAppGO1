@@ -380,23 +380,6 @@
   .grid-view-search-wrap{margin:10px 12px 0;}
   .grid-view-filters{padding:8px 12px;}
 
-  .grid-view-summary{
-    display:flex; gap:8px; padding:10px 12px; overflow-x:auto;
-    background:var(--charcoal-2); border-bottom:1.5px solid var(--steel-line);
-    flex:0 0 auto;
-  }
-  .grid-summary-chip{
-    flex:0 0 auto; display:flex; flex-direction:column; align-items:center;
-    padding:6px 14px; border-radius:9px; background:var(--charcoal); border:1.5px solid var(--steel-line);
-    min-width:64px;
-  }
-  .grid-summary-chip .gsc-value{font-size:16px; font-weight:900; color:var(--text);}
-  .grid-summary-chip .gsc-label{font-size:9px; font-weight:700; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.3px; margin-top:1px;}
-  .grid-summary-chip.intake .gsc-value{color:var(--amber);}
-  .grid-summary-chip.start .gsc-value{color:var(--orange);}
-  .grid-summary-chip.finished .gsc-value{color:var(--teal);}
-  .grid-summary-chip.delivered .gsc-value{color:#6a4fb8;}
-
   .grid-view-scroll{flex:1; overflow:auto; -webkit-overflow-scrolling:touch;}
   .grid-view-table{width:100%; border-collapse:collapse; font-size:12px; min-width:640px;}
   .grid-view-table thead th{
@@ -427,10 +410,10 @@
      while scrolling, plus a top border between each. */
   tr.gv-row-even td{background:var(--charcoal);}
   tr.gv-row-odd td{background:#f4f1fb;}
-  .gv-row td{border-top:2px solid var(--orange); padding:7px 6px; vertical-align:middle;}
+  .gv-row td{border-top:2px solid #4a4f57; padding:7px 6px; vertical-align:middle;}
   .gv-sno{font-size:13px; font-weight:900; color:var(--text-dim); text-align:center;}
   .gv-info-primary{font-size:12.5px; font-weight:800; color:var(--text);}
-  .gv-info-secondary{font-size:10.5px; color:var(--text-faint); margin-top:1px;}
+  .gv-info-secondary{font-size:11px; color:var(--text-dim); font-weight:700; margin-top:1px;}
 
   .gv-tick-box{
     width:24px; height:24px; border-radius:6px; border:2px solid var(--steel-line);
@@ -603,11 +586,10 @@
     <button class="search-clear" id="gridClearBtn">&times;</button>
   </div>
   <div class="filters grid-view-filters" id="gridFilters"></div>
-  <div class="grid-view-summary" id="gridViewSummary"></div>
   <div class="grid-view-scroll" id="gridViewScroll">
     <table class="grid-view-table">
       <thead>
-        <tr>
+        <tr id="gridViewHeadRow">
           <th class="gv-col-sno gv-frozen gv-frozen-1">Sno</th>
           <th class="gv-col-info gv-frozen gv-frozen-2">JobID<br>VehicleNo</th>
           <th class="gv-col-info">JobcardType<br>Model</th>
@@ -1194,6 +1176,13 @@ function matchesFilter(v, filterKey){
     return (!filterFromDate || dateStr >= filterFromDate) && (!filterToDate || dateStr <= filterToDate);
   };
 
+  if(filterKey === "pending_all"){
+    // Grid View's "Pending" chip — every not-yet-delivered jobcard,
+    // same scope as the Dashboard's "All Pending Jobcards" view
+    // (deliberately ignores date range, since this is meant to surface
+    // everything still open, not just the current period's intake).
+    return v.Status !== "delivered";
+  }
   if(filterKey === "all"){
     // "All" is now every role's pending list (intake/assigned/start/
     // finished — not delivered), everyone's vehicles, scoped to the
@@ -1256,6 +1245,7 @@ function getFilteredVehicles(){
     if(term) return true; // search overrides chip + date range entirely
 
     const matchesStatus = matchesFilter(v, activeFilter);
+    if(activeFilter === "pending_all") return matchesStatus; // ignores date range, same as the Dashboard's All Pending Jobcards view
     const vDate = (v.IntakeDate||"").toString().slice(0,10);
     const matchesFrom = !filterFromDate || vDate >= filterFromDate;
     const matchesTo = !filterToDate || vDate <= filterToDate;
@@ -1479,8 +1469,9 @@ function closeGridView(){
 }
 
 // Rebuilds the Grid View's own chip bar from the main filter bar's
-// current (already role-filtered) HTML, so the two never drift apart.
-// Called on open, and again any time a chip is clicked in either bar.
+// current (already role-filtered) HTML, so the two never drift apart,
+// then appends a Grid-View-only "Pending" chip (not shown on the main
+// screen) that reveals the Reason/Notes columns when active.
 function syncGridFilterBar(){
   const mainFilters = document.getElementById('filters');
   const gridFilters = document.getElementById('gridFilters');
@@ -1489,6 +1480,12 @@ function syncGridFilterBar(){
   // unique in the document; the clone only ever needs the shared
   // data-status/class for click handling and the active-state styling.
   gridFilters.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+  const pendingCount = vehicles.filter(v => v.Status !== 'delivered').length;
+  const activeClass = activeFilter === 'pending_all' ? ' active' : '';
+  gridFilters.insertAdjacentHTML('beforeend',
+    `<div class="chip${activeClass}" data-status="pending_all" style="color:#c0392b;"><span class="dot"></span>Pending (Reason/Notes) <span class="chip-count">${pendingCount}</span></div>`
+  );
 }
 
 function renderGridView(){
@@ -1503,28 +1500,33 @@ function renderGridView(){
   syncGridFilterBar();
 
   const filtered = getFilteredVehicles();
+  const showPendingCols = activeFilter === 'pending_all';
 
-  // Summary strip — counts within the CURRENT filtered set (respects
-  // whatever search/chip/date-range is active), so it always describes
-  // exactly what's in the table below it, not the whole database.
-  const summaryEl = document.getElementById('gridViewSummary');
-  const counts = {intake:0, assigned:0, start:0, finished:0, delivered:0};
-  filtered.forEach(v=>{ if(counts[v.Status] !== undefined) counts[v.Status]++; });
-  summaryEl.innerHTML = `
-    <div class="grid-summary-chip total"><div class="gsc-value">${filtered.length}</div><div class="gsc-label">Total</div></div>
-    <div class="grid-summary-chip intake"><div class="gsc-value">${counts.intake + counts.assigned}</div><div class="gsc-label">Pending Start</div></div>
-    <div class="grid-summary-chip start"><div class="gsc-value">${counts.start}</div><div class="gsc-label">Working</div></div>
-    <div class="grid-summary-chip finished"><div class="gsc-value">${counts.finished}</div><div class="gsc-label">Finished</div></div>
-    <div class="grid-summary-chip delivered"><div class="gsc-value">${counts.delivered}</div><div class="gsc-label">Delivered</div></div>
-  `;
+  // Header — add/remove the Reason + Notes columns depending on
+  // whether the Pending chip is active, same set used by the
+  // Dashboard's "All Pending Jobcards" view.
+  const headRow = document.getElementById('gridViewHeadRow');
+  const existingExtra = headRow.querySelectorAll('.gv-col-pending');
+  existingExtra.forEach(th => th.remove());
+  if(showPendingCols){
+    headRow.insertAdjacentHTML('beforeend',
+      `<th class="gv-col-pending" style="min-width:130px;">Pending Reason</th>
+       <th class="gv-col-pending" style="min-width:160px;">Notes</th>`
+    );
+  }
 
   const bodyEl = document.getElementById('gridViewBody');
+  const colCount = showPendingCols ? 10 : 8;
   if(filtered.length === 0){
-    bodyEl.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-faint);">No vehicles found</td></tr>`;
+    bodyEl.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center; padding:24px; color:var(--text-faint);">No vehicles found</td></tr>`;
     return;
   }
 
   const fmtTime = (t) => t ? t.toString().slice(0,16).replace(' ', ' ') : '';
+
+  const reasonOptions = ['<option value="">Select reason</option>']
+    .concat(pendingReasonList.map(r => `<option value="${r}">${r}</option>`))
+    .join('');
 
   bodyEl.innerHTML = filtered.map((v, idx) => {
     const rowClass = idx % 2 === 0 ? 'gv-row-even' : 'gv-row-odd';
@@ -1559,6 +1561,14 @@ function renderGridView(){
          ${deliveredClickable?`onclick="tickAdvance('${v.JobID}','delivered')"`:''}>${deliveredDone?'&#10003;':''}</div>
          <div class="gv-tick-time ${deliveredDone?'done-time':''}">${fmtTime(v.DeliveredTime)}</div>`;
 
+    const pendingCells = showPendingCols ? `
+      <td class="gv-col-pending">
+        <select class="gv-mechanic-select" style="max-width:none; width:100%;" id="gridPendingReason-${v.JobID}" onchange="saveGridPendingInfo('${v.JobID}')">${reasonOptions}</select>
+      </td>
+      <td class="gv-col-pending">
+        <textarea id="gridPendingNotes-${v.JobID}" rows="1" placeholder="Note" onblur="saveGridPendingInfo('${v.JobID}')" style="width:100%; min-width:150px; font-size:11px; padding:5px 6px; resize:vertical; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:6px; color:var(--text); font-family:inherit;"></textarea>
+      </td>` : '';
+
     return `
     <tr class="gv-row ${rowClass}">
       <td class="gv-sno gv-frozen gv-frozen-1">${sno}</td>
@@ -1569,8 +1579,50 @@ function renderGridView(){
       <td class="gv-col-tick" style="text-align:center;">${startCell}</td>
       <td class="gv-col-tick" style="text-align:center;">${finishedCell}</td>
       <td class="gv-col-tick" style="text-align:center;">${deliveredCell}</td>
+      ${pendingCells}
     </tr>`;
   }).join('');
+
+  // Fill in each Reason/Notes field's current saved value after the
+  // HTML is in place, same pattern as the Dashboard's Pending view.
+  if(showPendingCols){
+    filtered.forEach(v => {
+      const reasonSel = document.getElementById(`gridPendingReason-${v.JobID}`);
+      const notesEl = document.getElementById(`gridPendingNotes-${v.JobID}`);
+      if(reasonSel) reasonSel.value = v.PendingReason || '';
+      if(notesEl) notesEl.value = v.PendingNotes || '';
+    });
+  }
+}
+
+// Same backend call as the Dashboard's savePendingInfo, just reading
+// from Grid View's own (uniquely-id'd) fields so the two views never
+// collide if both happened to be in the DOM at once.
+async function saveGridPendingInfo(jobId){
+  const v = vehicles.find(x => String(x.JobID) === String(jobId));
+  if(!v) return;
+
+  const reasonSel = document.getElementById(`gridPendingReason-${jobId}`);
+  const notesEl = document.getElementById(`gridPendingNotes-${jobId}`);
+  const pendingReason = reasonSel ? reasonSel.value : '';
+  const pendingNotes = notesEl ? notesEl.value : '';
+
+  v.PendingReason = pendingReason;
+  v.PendingNotes = pendingNotes;
+
+  try{
+    const url = `${GAS_URL}?action=updatePendingInfo&jobId=${encodeURIComponent(jobId)}`
+      + `&pendingReason=${encodeURIComponent(pendingReason)}`
+      + `&pendingNotes=${encodeURIComponent(pendingNotes)}`
+      + `&username=${encodeURIComponent(currentUser ? currentUser.username : '')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.success){
+      showToast(data.message || "Could not save pending info", true);
+    }
+  } catch(err){
+    showToast("Could not save pending info", true);
+  }
 }
 
 /* =========================================================
