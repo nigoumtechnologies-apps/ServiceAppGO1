@@ -412,17 +412,25 @@
   .mech-chart-table .mech-slot-col{min-width:96px;}
   .mech-chart-table td.mech-ramp-cell{font-weight:900; text-align:center; color:var(--text-dim);}
   .mech-chart-table td.mech-name-cell{font-weight:800; text-align:left; padding-left:10px; color:var(--text);}
-  .mech-slot-cell{position:relative; height:52px; padding:4px !important; vertical-align:top;}
+  .mech-slot-cell{position:relative; height:62px; padding:4px !important; vertical-align:top;}
   .mech-booking-block{
     background:var(--teal); color:#fff; border-radius:7px; padding:5px 6px;
     font-size:10.5px; font-weight:800; height:100%; display:flex; flex-direction:column;
-    justify-content:center; gap:2px; overflow:hidden;
+    justify-content:center; gap:3px; overflow:hidden;
   }
-  .mech-booking-vehicle{font-size:11.5px; font-weight:900;}
-  .mech-booking-actions{display:flex; gap:4px; margin-top:2px;}
+  .mech-booking-shift-row{display:flex; align-items:center; gap:4px;}
+  .mech-shift-arrow{
+    flex:0 0 auto; background:rgba(255,255,255,0.25); border:none; border-radius:4px;
+    color:#fff; font-size:11px; font-weight:900; width:18px; height:18px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .mech-shift-arrow:active{background:rgba(255,255,255,0.45);}
+  .mech-shift-arrow:disabled{opacity:0.25; cursor:not-allowed;}
+  .mech-booking-vehicle{font-size:11.5px; font-weight:900; flex:1; text-align:center;}
+  .mech-booking-actions{display:flex; gap:3px; margin-top:1px;}
   .mech-booking-actions button{
     flex:1; background:rgba(255,255,255,0.25); border:none; border-radius:4px;
-    color:#fff; font-size:9px; font-weight:800; padding:2px 0; cursor:pointer;
+    color:#fff; font-size:8.5px; font-weight:800; padding:2px 0; cursor:pointer;
   }
   .mech-booking-actions button:active{background:rgba(255,255,255,0.45);}
   .mech-booking-remove{
@@ -430,6 +438,8 @@
     background:rgba(0,0,0,0.3); color:#fff; font-size:10px; line-height:14px; text-align:center;
     cursor:pointer;
   }
+  .mech-slot-empty{cursor:pointer;}
+  .mech-slot-empty:active{background:rgba(31,166,147,0.12) !important;}
 
   /* ---------------- GRID VIEW (centralized tick table) ---------------- *
    * Wider than the normal 480px mobile shell — this is a dense table,
@@ -913,6 +923,7 @@
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <div class="confirm-message" id="confirmMessage">Are you sure?</div>
+    <div id="confirmExtraContent" style="margin:12px 0; display:none;"></div>
     <div class="confirm-actions">
       <button class="confirm-no" id="confirmNoBtn">Cancel</button>
       <button class="confirm-yes" id="confirmYesBtn">Yes, Confirm</button>
@@ -1831,31 +1842,42 @@ function renderMechChart(){
     const bookingBySlot = {};
     const coveredSlots = {};
     myBookings.forEach(b => {
+      const startSlot = Number(b.StartSlot);
       const span = Math.max(1, Math.round((b.DurationMin || 60) / 60));
-      bookingBySlot[b.StartSlotIndex] = { booking: b, span };
-      for(let s = b.StartSlotIndex; s < b.StartSlotIndex + span; s++) coveredSlots[s] = true;
+      bookingBySlot[startSlot] = { booking: b, span, startSlot };
+      for(let s = startSlot; s < startSlot + span; s++) coveredSlots[s] = true;
     });
 
     let slotCells = '';
     for(let slotIdx = 0; slotIdx < SCHEDULE_SLOTS.length; slotIdx++){
       if(bookingBySlot[slotIdx]){
-        const { booking, span } = bookingBySlot[slotIdx];
+        const { booking, span, startSlot } = bookingBySlot[slotIdx];
         const colspan = Math.min(span, SCHEDULE_SLOTS.length - slotIdx);
+        const atLeftEdge = startSlot <= 0;
+        const atRightEdge = startSlot + span >= SCHEDULE_SLOTS.length;
         slotCells += `
           <td class="mech-slot-cell" colspan="${colspan}">
             <div class="mech-booking-block">
-              <div class="mech-booking-vehicle">${booking.VehicleNo}</div>
+              <div class="mech-booking-shift-row">
+                <button class="mech-shift-arrow" ${atLeftEdge?'disabled':''} onclick="event.stopPropagation(); shiftBooking('${booking.BookingID}', ${startSlot}, -1)">&#8592;</button>
+                <div class="mech-booking-vehicle">${booking.VehicleNo}</div>
+                <button class="mech-shift-arrow" ${atRightEdge?'disabled':''} onclick="event.stopPropagation(); shiftBooking('${booking.BookingID}', ${startSlot}, 1)">&#8594;</button>
+              </div>
               <div class="mech-booking-actions">
-                <button onclick="extendBooking('${booking.BookingID}', 60)">+1 Hr</button>
-                <button onclick="extendBooking('${booking.BookingID}', 30)">+30 Min</button>
+                <button onclick="event.stopPropagation(); extendBooking('${booking.BookingID}', 60)">+1 Hr</button>
+                <button onclick="event.stopPropagation(); extendBooking('${booking.BookingID}', 30)">+30 Min</button>
+                <button onclick="event.stopPropagation(); extendBooking('${booking.BookingID}', -30)">-30</button>
               </div>
             </div>
-            <div class="mech-booking-remove" onclick="removeBooking('${booking.BookingID}')">&times;</div>
+            <div class="mech-booking-remove" onclick="event.stopPropagation(); removeBooking('${booking.BookingID}')">&times;</div>
           </td>`;
       } else if(coveredSlots[slotIdx]){
         // covered by a previous cell's colspan — skip entirely
       } else {
-        slotCells += `<td class="mech-slot-cell"></td>`;
+        // Empty cell — direct-edit: tap to manually place a vehicle
+        // here, for whenever auto-placement didn't cover it (mechanic
+        // wasn't on the Ramp chart yet at assignment time, etc).
+        slotCells += `<td class="mech-slot-cell mech-slot-empty" onclick="openDirectEdit('${r.mechanic}', ${slotIdx})"></td>`;
       }
     }
 
@@ -1866,6 +1888,67 @@ function renderMechChart(){
       ${slotCells}
     </tr>`;
   }).join('');
+}
+
+// Left/right shift arrows — move a booking one slot at a time.
+async function shiftBooking(bookingId, currentSlot, direction){
+  const newSlot = currentSlot + direction;
+  try{
+    const url = `${GAS_URL}?action=moveScheduleBooking&bookingId=${encodeURIComponent(bookingId)}&newSlot=${newSlot}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      loadMechChart();
+    } else {
+      showToast(data.message || "Could not move booking", true);
+    }
+  } catch(err){
+    showToast("Could not move booking", true);
+  }
+}
+
+// Direct-edit: tapping an empty chart cell lets the user place a
+// vehicle there straight away, picked from the currently open
+// (not-yet-delivered) jobcards — for whenever a booking wasn't
+// auto-placed, or needs a manual slot pick from scratch.
+function openDirectEdit(mechanic, slotIdx){
+  const date = document.getElementById('mechChartDate').value || todayDateStr();
+  const openJobs = vehicles.filter(v => v.Status !== 'delivered');
+
+  if(openJobs.length === 0){
+    showToast("No open jobcards to place", true);
+    return;
+  }
+
+  const options = openJobs.map(v =>
+    `<option value="${v.VehicleNo}|${v.JobID}">${v.VehicleNo} — ${v.JobID} (${STATUS_LABEL[v.Status]})</option>`
+  ).join('');
+
+  showPrompt(
+    `Place a vehicle — ${mechanic}, ${SCHEDULE_SLOTS[slotIdx].toUpperCase()}`,
+    `<select id="directEditVehicleSelect" style="width:100%; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px; padding:10px; font-size:14px; color:var(--text);">${options}</select>`,
+    async ()=>{
+      const sel = document.getElementById('directEditVehicleSelect');
+      const [vehicleNo, jobId] = sel.value.split('|');
+      try{
+        const url = `${GAS_URL}?action=addScheduleBooking`
+          + `&mechanic=${encodeURIComponent(mechanic)}`
+          + `&vehicleNo=${encodeURIComponent(vehicleNo)}`
+          + `&jobId=${encodeURIComponent(jobId)}`
+          + `&date=${encodeURIComponent(date)}`
+          + `&startSlot=${slotIdx}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if(data.success){
+          loadMechChart();
+        } else {
+          showToast(data.message || "Could not place vehicle", true);
+        }
+      } catch(err){
+        showToast("Could not place vehicle", true);
+      }
+    }
+  );
 }
 
 async function extendBooking(bookingId, minutes){
@@ -3148,9 +3231,41 @@ function showConfirm(message, onConfirm){
   const yesBtn = document.getElementById('confirmYesBtn');
   const noBtn = document.getElementById('confirmNoBtn');
   document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmExtraContent').style.display = 'none';
+  document.getElementById('confirmExtraContent').innerHTML = '';
 
   // Clone buttons to strip any previously-attached listeners
   // (prevents old confirms from double-firing on repeated use)
+  const newYes = yesBtn.cloneNode(true);
+  const newNo = noBtn.cloneNode(true);
+  yesBtn.parentNode.replaceChild(newYes, yesBtn);
+  noBtn.parentNode.replaceChild(newNo, noBtn);
+
+  newYes.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+    onConfirm();
+  });
+  newNo.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+  });
+
+  overlay.classList.add('show');
+}
+
+// Same modal as showConfirm, but with an injected HTML body (e.g. a
+// <select>) between the message and the buttons — used for Mechanic
+// Allotment Chart's direct-edit (pick a vehicle from a dropdown, then
+// confirm). onConfirm runs only after the person taps "Yes, Confirm",
+// same as showConfirm — bodyHtml's own inputs are read inside onConfirm.
+function showPrompt(message, bodyHtml, onConfirm){
+  const overlay = document.getElementById('confirmOverlay');
+  const yesBtn = document.getElementById('confirmYesBtn');
+  const noBtn = document.getElementById('confirmNoBtn');
+  const extra = document.getElementById('confirmExtraContent');
+  document.getElementById('confirmMessage').textContent = message;
+  extra.innerHTML = bodyHtml;
+  extra.style.display = 'block';
+
   const newYes = yesBtn.cloneNode(true);
   const newNo = noBtn.cloneNode(true);
   yesBtn.parentNode.replaceChild(newYes, yesBtn);
