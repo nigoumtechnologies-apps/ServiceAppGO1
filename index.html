@@ -370,6 +370,67 @@
   .tick-label{flex:1;}
   .tick-sub{font-size:11.5px; opacity:0.75; font-weight:700;}
 
+  /* ---------------- HOME SCREEN / QUICK LINKS ---------------- */
+  .home-screen-overlay{max-width:480px;}
+  .home-screen-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:18px;
+    overflow-y:auto; flex:1;
+  }
+  .home-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; padding:26px 12px; border-radius:16px; border:1.5px solid var(--steel-line);
+    background:var(--charcoal-2); cursor:pointer; text-align:center;
+    transition:transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .home-tile:active{transform:scale(0.96);}
+  .home-tile .home-tile-icon{font-size:34px; line-height:1;}
+  .home-tile .home-tile-label{font-size:13px; font-weight:800; color:var(--text);}
+  .home-tile.tile-grid{background:#eef4ff; border-color:#c7d9fb;}
+  .home-tile.tile-dashboard{background:#fff2e8; border-color:#ffd3b3;}
+  .home-tile.tile-mechchart{background:#eefaf6; border-color:#b9e8db;}
+  .home-tile.tile-report{background:#f5f0ff; border-color:#dcccfb;}
+  .home-tile.tile-import{background:#fff8e0; border-color:#f3e2a0;}
+  .home-tile.tile-pending{background:#fdecec; border-color:#f5c2c2;}
+
+  /* ---------------- MECHANIC ALLOTMENT CHART ---------------- */
+  .mech-chart-toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; background:var(--charcoal-2); border-bottom:1.5px solid var(--steel-line);
+  }
+  .mech-chart-date{
+    background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 10px; font-size:13px; color:var(--text); outline:none;
+  }
+  .mech-chart-setup-btn{
+    background:var(--charcoal); border:1.5px solid var(--steel-line); border-radius:8px;
+    padding:8px 12px; font-size:12px; font-weight:700; color:var(--text); cursor:pointer;
+  }
+  .mech-chart-table{min-width:920px;}
+  .mech-chart-table thead th{white-space:nowrap;}
+  .mech-chart-table .mech-ramp-col{width:44px; min-width:44px; max-width:44px; left:0;}
+  .mech-chart-table .mech-name-col{width:110px; min-width:110px; left:44px; text-align:left; padding-left:10px;}
+  .mech-chart-table .mech-slot-col{min-width:96px;}
+  .mech-chart-table td.mech-ramp-cell{font-weight:900; text-align:center; color:var(--text-dim);}
+  .mech-chart-table td.mech-name-cell{font-weight:800; text-align:left; padding-left:10px; color:var(--text);}
+  .mech-slot-cell{position:relative; height:52px; padding:4px !important; vertical-align:top;}
+  .mech-booking-block{
+    background:var(--teal); color:#fff; border-radius:7px; padding:5px 6px;
+    font-size:10.5px; font-weight:800; height:100%; display:flex; flex-direction:column;
+    justify-content:center; gap:2px; overflow:hidden;
+  }
+  .mech-booking-vehicle{font-size:11.5px; font-weight:900;}
+  .mech-booking-actions{display:flex; gap:4px; margin-top:2px;}
+  .mech-booking-actions button{
+    flex:1; background:rgba(255,255,255,0.25); border:none; border-radius:4px;
+    color:#fff; font-size:9px; font-weight:800; padding:2px 0; cursor:pointer;
+  }
+  .mech-booking-actions button:active{background:rgba(255,255,255,0.45);}
+  .mech-booking-remove{
+    position:absolute; top:2px; right:2px; width:14px; height:14px; border-radius:50%;
+    background:rgba(0,0,0,0.3); color:#fff; font-size:10px; line-height:14px; text-align:center;
+    cursor:pointer;
+  }
+
   /* ---------------- GRID VIEW (centralized tick table) ---------------- *
    * Wider than the normal 480px mobile shell — this is a dense table,
    * meant to show many jobcards at once, so it uses the available
@@ -531,7 +592,9 @@
         </div>
       </div>
       <div class="user-chip">
+        <button class="dash-btn" id="homeBtn" onclick="openHomeScreen()" title="Quick Links">&#8962;</button>
         <button class="dash-btn" id="gridViewBtn" onclick="openGridView()" title="Grid View">&#9638;</button>
+        <button class="dash-btn" id="mechChartBtn" onclick="openMechChart()" title="Mechanic Allotment Chart">&#128736;</button>
         <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
         <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
         <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Jobcards Upload" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
@@ -574,6 +637,47 @@
   <button class="fab-upload" id="fabUpload" onclick="toggleImport()" title="Jobcards Upload" style="display:none;">&#128229;</button>
 </div>
 
+<!-- ============ HOME SCREEN / QUICK LINKS (all users) ============ -->
+<div class="dashboard-overlay home-screen-overlay" id="homeScreenOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Quick Links</div>
+    <button class="dash-close-btn" onclick="closeHomeScreen()">&times;</button>
+  </div>
+  <div class="home-screen-grid" id="homeScreenGrid"></div>
+</div>
+
+<!-- ============ MECHANIC ALLOTMENT CHART (all users) ============ -->
+<div class="dashboard-overlay grid-view-overlay" id="mechChartOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Mechanic Allotment Chart</div>
+    <button class="dash-close-btn" onclick="closeMechChart()">&times;</button>
+  </div>
+  <div class="mech-chart-toolbar">
+    <input type="date" id="mechChartDate" class="mech-chart-date">
+    <button class="mech-chart-setup-btn" id="mechChartSetupBtn" onclick="openRampSetup()">&#9881;&#65039; Ramp Setup</button>
+  </div>
+  <div class="grid-view-scroll" id="mechChartScroll">
+    <table class="grid-view-table mech-chart-table">
+      <thead>
+        <tr id="mechChartHeadRow">
+          <th class="gv-frozen gv-frozen-1 mech-ramp-col">Ramp</th>
+          <th class="gv-frozen gv-frozen-2 mech-name-col">Mechanic Name</th>
+        </tr>
+      </thead>
+      <tbody id="mechChartBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ RAMP SETUP (Admin's fixed seating chart) ============ -->
+<div class="dashboard-overlay" id="rampSetupOverlay">
+  <div class="dashboard-header">
+    <div class="dashboard-title">Ramp Setup</div>
+    <button class="dash-close-btn" onclick="closeRampSetup()">&times;</button>
+  </div>
+  <div class="dashboard-body" id="rampSetupBody"></div>
+</div>
+
 <!-- ============ GRID VIEW OVERLAY (all users) ============ -->
 <div class="dashboard-overlay grid-view-overlay" id="gridViewOverlay">
   <div class="dashboard-header">
@@ -588,6 +692,7 @@
   <div class="filters grid-view-filters" id="gridFilters"></div>
   <div class="grid-view-scroll" id="gridViewScroll">
     <table class="grid-view-table">
+
       <thead>
         <tr id="gridViewHeadRow">
           <th class="gv-col-sno gv-frozen gv-frozen-1">Sno</th>
@@ -839,6 +944,10 @@ let userTouchedFromDate = false; // once user manually picks a From date, stop a
 
 const STATUS_FLOW = ["intake","assigned","start","finished","delivered"];
 const STATUS_LABEL = {intake:"Intake", assigned:"Assigned", start:"Work Start", finished:"Finished", delivered:"Delivered"};
+// Fixed Mechanic Allotment Chart columns — must match SCHEDULE_SLOTS in
+// the Apps Script backend exactly (same order, same wording, no 2-3
+// slot — lunch break, matching the paper chart).
+const SCHEDULE_SLOTS = ["9 to 10","10 to 11","11 to 12","12 to 1","1 to 2","3 to 4","4 to 5","5 to 6","6 to 7"];
 const NEXT_LABEL = {intake:"Start Work", start:"Mark Finished", finished:"Deliver", delivered:null};
 
 /* =========================================================
@@ -1622,6 +1731,234 @@ async function saveGridPendingInfo(jobId){
     }
   } catch(err){
     showToast("Could not save pending info", true);
+  }
+}
+
+/* =========================================================
+   HOME SCREEN / QUICK LINKS — one tap access to every screen,
+   role-filtered using the exact same checks already applied to the
+   header icons (no duplicated role logic).
+   ========================================================= */
+function openHomeScreen(){
+  renderHomeScreen();
+  document.getElementById('homeScreenOverlay').classList.add('show');
+}
+function closeHomeScreen(){
+  document.getElementById('homeScreenOverlay').classList.remove('show');
+}
+function renderHomeScreen(){
+  const isAdmin = currentUser && (currentUser.role||"").toLowerCase() === "admin";
+  const isManager = currentUser && (currentUser.role||"").toLowerCase() === "manager";
+  const grid = document.getElementById('homeScreenGrid');
+
+  const tiles = [
+    { key:'grid', cls:'tile-grid', icon:'&#9638;', label:'Grid View', show:true, action:'closeHomeScreen(); openGridView();' },
+    { key:'mechchart', cls:'tile-mechchart', icon:'&#128736;', label:'Mechanic Allotment Chart', show:true, action:'closeHomeScreen(); openMechChart();' },
+    { key:'dashboard', cls:'tile-dashboard', icon:'&#128202;', label:'Dashboard', show:isAdmin||isManager, action:'closeHomeScreen(); toggleDashboard();' },
+    { key:'pending', cls:'tile-pending', icon:'&#9888;&#65039;', label:'All Pending Jobcards', show:isAdmin||isManager, action:'closeHomeScreen(); openPendingJobcardsView();' },
+    { key:'report', cls:'tile-report', icon:'&#128203;', label:'Daily Report', show:true, action:'closeHomeScreen(); toggleReport();' },
+    { key:'import', cls:'tile-import', icon:'&#128229;', label:'Jobcards Upload', show:isAdmin||isManager, action:'closeHomeScreen(); toggleImport();' },
+  ];
+
+  grid.innerHTML = tiles.filter(t=>t.show).map(t => `
+    <div class="home-tile ${t.cls}" onclick="${t.action}">
+      <div class="home-tile-icon">${t.icon}</div>
+      <div class="home-tile-label">${t.label}</div>
+    </div>
+  `).join('');
+}
+
+/* =========================================================
+   MECHANIC ALLOTMENT CHART — Ramp-by-time-slot booking board.
+   Bookings are placed automatically by autoBookSchedule() on the
+   backend the moment a mechanic is assigned to a jobcard (see
+   tickAssignMechanic -> assignMechanic). This screen only displays
+   and lets the user extend/remove a booking's duration.
+   ========================================================= */
+let mechChartRamps = [];   // [{ramp, mechanic}, ...] from RampSetup sheet
+let mechChartBookings = []; // bookings for the selected date
+
+function openMechChart(){
+  const dateInput = document.getElementById('mechChartDate');
+  if(!dateInput.value) dateInput.value = todayDateStr();
+  document.getElementById('mechChartOverlay').classList.add('show');
+  loadMechChart();
+}
+function closeMechChart(){
+  document.getElementById('mechChartOverlay').classList.remove('show');
+}
+
+async function loadMechChart(){
+  const date = document.getElementById('mechChartDate').value || todayDateStr();
+  try{
+    const [rampRes, schedRes] = await Promise.all([
+      fetch(`${GAS_URL}?action=getRampSetup`).then(r=>r.json()),
+      fetch(`${GAS_URL}?action=getSchedule&date=${encodeURIComponent(date)}`).then(r=>r.json())
+    ]);
+    mechChartRamps = (rampRes.success ? rampRes.ramps : []).sort((a,b)=>Number(a.ramp)-Number(b.ramp));
+    mechChartBookings = schedRes.success ? schedRes.bookings : [];
+    renderMechChart();
+  } catch(err){
+    showToast("Could not load Mechanic Allotment Chart", true);
+  }
+}
+
+document.getElementById('mechChartDate').addEventListener('change', loadMechChart);
+
+function renderMechChart(){
+  // Header row — Ramp / Mechanic Name (frozen) + one column per fixed slot
+  const headRow = document.getElementById('mechChartHeadRow');
+  headRow.innerHTML = `
+    <th class="gv-frozen gv-frozen-1 mech-ramp-col">Ramp</th>
+    <th class="gv-frozen gv-frozen-2 mech-name-col">Mechanic Name</th>
+    ${SCHEDULE_SLOTS.map(s=>`<th class="mech-slot-col">${s.toUpperCase()}</th>`).join('')}
+  `;
+
+  const bodyEl = document.getElementById('mechChartBody');
+
+  if(mechChartRamps.length === 0){
+    bodyEl.innerHTML = `<tr><td colspan="${2+SCHEDULE_SLOTS.length}" style="text-align:center; padding:24px; color:var(--text-faint);">
+      No ramps set up yet — tap "Ramp Setup" above to assign mechanics to ramps.</td></tr>`;
+    return;
+  }
+
+  bodyEl.innerHTML = mechChartRamps.map((r, idx) => {
+    const rowClass = idx % 2 === 0 ? 'gv-row-even' : 'gv-row-odd';
+    const myBookings = mechChartBookings.filter(b => String(b.Mechanic).trim() === String(r.mechanic).trim());
+
+    // Map each slot index to the booking that starts there (if any) and
+    // how many slot-columns it should visually span.
+    const bookingBySlot = {};
+    const coveredSlots = {};
+    myBookings.forEach(b => {
+      const span = Math.max(1, Math.round((b.DurationMin || 60) / 60));
+      bookingBySlot[b.StartSlotIndex] = { booking: b, span };
+      for(let s = b.StartSlotIndex; s < b.StartSlotIndex + span; s++) coveredSlots[s] = true;
+    });
+
+    let slotCells = '';
+    for(let slotIdx = 0; slotIdx < SCHEDULE_SLOTS.length; slotIdx++){
+      if(bookingBySlot[slotIdx]){
+        const { booking, span } = bookingBySlot[slotIdx];
+        const colspan = Math.min(span, SCHEDULE_SLOTS.length - slotIdx);
+        slotCells += `
+          <td class="mech-slot-cell" colspan="${colspan}">
+            <div class="mech-booking-block">
+              <div class="mech-booking-vehicle">${booking.VehicleNo}</div>
+              <div class="mech-booking-actions">
+                <button onclick="extendBooking('${booking.BookingID}', 60)">+1 Hr</button>
+                <button onclick="extendBooking('${booking.BookingID}', 30)">+30 Min</button>
+              </div>
+            </div>
+            <div class="mech-booking-remove" onclick="removeBooking('${booking.BookingID}')">&times;</div>
+          </td>`;
+      } else if(coveredSlots[slotIdx]){
+        // covered by a previous cell's colspan — skip entirely
+      } else {
+        slotCells += `<td class="mech-slot-cell"></td>`;
+      }
+    }
+
+    return `
+    <tr class="gv-row ${rowClass}">
+      <td class="gv-frozen gv-frozen-1 mech-ramp-cell">${r.ramp}</td>
+      <td class="gv-frozen gv-frozen-2 mech-name-cell">${r.mechanic||'<span style="color:var(--text-faint); font-weight:400;">Unassigned</span>'}</td>
+      ${slotCells}
+    </tr>`;
+  }).join('');
+}
+
+async function extendBooking(bookingId, minutes){
+  try{
+    const url = `${GAS_URL}?action=extendScheduleBooking&bookingId=${encodeURIComponent(bookingId)}&minutes=${minutes}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      loadMechChart();
+    } else {
+      showToast(data.message || "Could not extend booking", true);
+    }
+  } catch(err){
+    showToast("Could not extend booking", true);
+  }
+}
+
+function removeBooking(bookingId){
+  showConfirm("Remove this vehicle from the chart?", async ()=>{
+    try{
+      const url = `${GAS_URL}?action=deleteScheduleBooking&bookingId=${encodeURIComponent(bookingId)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.success){
+        loadMechChart();
+      } else {
+        showToast(data.message || "Could not remove booking", true);
+      }
+    } catch(err){
+      showToast("Could not remove booking", true);
+    }
+  });
+}
+
+/* ---------------- RAMP SETUP (Admin's fixed seating chart) ---------------- */
+function openRampSetup(){
+  renderRampSetupForm();
+  document.getElementById('rampSetupOverlay').classList.add('show');
+}
+function closeRampSetup(){
+  document.getElementById('rampSetupOverlay').classList.remove('show');
+}
+
+function renderRampSetupForm(){
+  const body = document.getElementById('rampSetupBody');
+  // Always show 8 ramp rows (matches the paper chart) — pre-filled
+  // with whatever's already saved, blank for any ramp not set up yet.
+  const rampCount = Math.max(8, mechChartRamps.length);
+  const rows = [];
+  for(let i=1; i<=rampCount; i++){
+    const existing = mechChartRamps.find(r => Number(r.ramp) === i);
+    rows.push({ ramp: i, mechanic: existing ? existing.mechanic : '' });
+  }
+
+  const mechanicOptions = mech => ['<option value="">Unassigned</option>']
+    .concat(mechanicsList.map(m=>`<option value="${m}" ${mech===m?'selected':''}>${m}</option>`))
+    .join('');
+
+  body.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${rows.map(r => `
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; text-align:center; font-weight:900; color:var(--text-dim);">${r.ramp}</div>
+          <select class="ramp-setup-select" data-ramp="${r.ramp}" style="flex:1; background:var(--steel); border:1.5px solid var(--steel-line); border-radius:8px; padding:9px 10px; font-size:13px; color:var(--text); outline:none;">
+            ${mechanicOptions(r.mechanic)}
+          </select>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn-save" style="width:100%; margin-top:16px;" onclick="submitRampSetup()">Save Ramp Setup</button>
+  `;
+}
+
+async function submitRampSetup(){
+  const selects = document.querySelectorAll('.ramp-setup-select');
+  const ramps = Array.from(selects).map(sel => ({
+    ramp: sel.dataset.ramp,
+    mechanic: sel.value
+  }));
+
+  try{
+    const url = `${GAS_URL}?action=saveRampSetup&ramps=${encodeURIComponent(JSON.stringify(ramps))}&username=${encodeURIComponent(currentUser ? currentUser.username : '')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      showToast("Ramp setup saved");
+      closeRampSetup();
+      loadMechChart();
+    } else {
+      showToast(data.message || "Could not save ramp setup", true);
+    }
+  } catch(err){
+    showToast("Could not save ramp setup", true);
   }
 }
 
