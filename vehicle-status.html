@@ -348,6 +348,13 @@
     font-size:12.5px; font-weight:800; display:flex; align-items:center;
     justify-content:center; gap:6px; cursor:pointer;
   }
+  /* fb-state-0 (never sent) uses the base green above unchanged.
+     fb-state-1 covers all three "already sent" states (1st/2nd/3rd) —
+     same red every time, only the label text changes, so the color
+     alone signals "this has already gone out at least once, think
+     before sending again" without needing three different shades. */
+  .whatsapp-feedback-btn.fb-state-1{background:#e0342b;}
+  .whatsapp-feedback-btn.fb-state-done{background:var(--steel-line); color:var(--text-dim); cursor:default;}
 
   .simple-mechanic-inline{
     width:100%; background:#fff; border:1.5px solid #4a4470; border-radius:5px;
@@ -1291,6 +1298,29 @@ function sendWhatsAppFeedback(jobId){
   const message = buildWhatsAppFeedbackMessage(v);
   const waUrl = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, '_blank');
+
+  // Track the send — updates the button to "Whatsapp send Nth time" in
+  // red, capped at 3. Best-effort: if this fails, the WhatsApp message
+  // itself has already been opened above, so the person's action still
+  // went through; only the on-screen counter would be stale until the
+  // next refresh.
+  incrementFeedbackSentCount(jobId);
+}
+
+async function incrementFeedbackSentCount(jobId){
+  try{
+    const url = `${GAS_URL}?action=incrementFeedbackSent&jobId=${encodeURIComponent(jobId)}&username=${encodeURIComponent(currentUser ? currentUser.username : '')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      const v = vehicles.find(x=>String(x.JobID)===String(jobId));
+      if(v) v.FeedbackSentCount = data.feedbackSentCount;
+      render();
+    }
+  } catch(err){
+    // Silent — the WhatsApp send itself already happened; this only
+    // updates the on-screen counter, not the action the person took.
+  }
 }
 
 // Single source of truth for what each chip means, used by both
@@ -1521,12 +1551,25 @@ function renderSimpleCard(v){
   // WhatsApp feedback button — only for delivered vehicles, and only
   // for roles allowed to contact customers directly (Admin, Manager,
   // Customer Care). Mechanics/Supervisors never see this at all.
+  // Label/color reflect how many times it's been sent already (1st/
+  // 2nd/3rd), so it's obvious at a glance whether this is a fresh
+  // request or a repeat follow-up. Capped at 3 sends per jobcard.
   const role = (currentUser.role||"").toLowerCase();
   const canSendFeedback = ['admin','manager','customer care'].includes(role);
-  const whatsAppStrip = (deliveredDone && canSendFeedback)
-    ? `<button class="whatsapp-feedback-btn" onclick="event.stopPropagation(); sendWhatsAppFeedback('${v.JobID}')">
-         &#128241; Send Feedback Request
+  const feedbackSentCount = parseInt(v.FeedbackSentCount, 10) || 0;
+  const FEEDBACK_BTN_STATES = [
+    { label: 'Send Feedback Request', cls: 'fb-state-0' },   // never sent — green
+    { label: 'Whatsapp send 1st time', cls: 'fb-state-1' },  // sent once — red
+    { label: 'Whatsapp send 2nd time', cls: 'fb-state-1' },  // sent twice — red
+    { label: 'Whatsapp send 3rd time', cls: 'fb-state-1' },  // sent 3 times — red, last allowed send
+  ];
+  const fbState = FEEDBACK_BTN_STATES[Math.min(feedbackSentCount, 3)];
+  const whatsAppStrip = (deliveredDone && canSendFeedback && feedbackSentCount < 3)
+    ? `<button class="whatsapp-feedback-btn ${fbState.cls}" onclick="event.stopPropagation(); sendWhatsAppFeedback('${v.JobID}')">
+         &#128241; ${fbState.label}
        </button>`
+    : (deliveredDone && canSendFeedback && feedbackSentCount >= 3)
+    ? `<div class="whatsapp-feedback-btn fb-state-done">&#9989; Whatsapp sent 3rd time</div>`
     : '';
 
   return `
