@@ -74,7 +74,7 @@
 
   /* ---------------- HEADER ---------------- */
   header{background:var(--charcoal-2); padding:12px 16px 12px; border-bottom:2px solid var(--orange); position:sticky; top:0; z-index:20;}
-  .brand{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .brand{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
   .brand-left{display:flex; align-items:center; gap:8px;}
   .brand-mark{
     width:28px; height:28px; background:var(--orange);
@@ -83,10 +83,9 @@
   }
   .brand-name{font-size:17px; font-weight:800;}
   .brand-sub{font-size:10px; color:var(--text-faint); letter-spacing:1px; text-transform:uppercase;}
-  .user-chip{display:flex; align-items:center; gap:8px;}
-  .user-info{text-align:right;}
-  .user-info .uname{font-size:12px; font-weight:700; color:var(--text);}
-  .user-info .urole{font-size:9.5px; color:var(--text-faint); text-transform:uppercase;}
+  .user-info-only{display:flex; align-items:center; gap:10px;}
+  .user-info-only .uname{font-size:12px; font-weight:700; color:var(--text);}
+  .user-info-only .urole{font-size:9.5px; color:var(--text-faint); text-transform:uppercase;}
   .logout-btn{background:none; border:none; color:var(--text-faint); font-size:18px; cursor:pointer; padding:4px;}
   .refresh-btn{background:none; border:none; color:var(--teal); font-size:19px; cursor:pointer; padding:4px; display:flex; align-items:center; justify-content:center;}
   .refresh-btn.spinning{animation:spin 0.7s linear infinite;}
@@ -94,6 +93,14 @@
   .dash-btn{background:none; border:none; color:var(--amber); font-size:17px; cursor:pointer; padding:4px;}
   .report-btn{background:none; border:none; color:var(--teal); font-size:17px; cursor:pointer; padding:4px;}
   .import-btn{background:none; border:none; color:#6a4fb8; font-size:17px; cursor:pointer; padding:4px;}
+
+  /* Buttons on their own row now, below the logo/user row — was
+     crammed next to the logo before and hard to tap accurately. */
+  .header-actions-row{
+    display:flex; align-items:center; gap:6px; padding:6px 4px;
+    background:var(--steel); border-radius:10px; margin-bottom:10px;
+    overflow-x:auto;
+  }
 
   /* ---------------- DATE RANGE BAR ---------------- */
   .date-range-bar{display:flex; align-items:center; gap:8px; margin-top:10px;}
@@ -104,6 +111,10 @@
   .date-range-input:focus{border-color:var(--orange);}
   .date-range-sep{font-size:11px; color:var(--text-faint);}
   .date-range-clear{background:var(--steel); border:none; color:var(--text-faint); font-size:16px; border-radius:8px; padding:6px 10px; cursor:pointer;}
+  /* Moved into the Dashboard overlay (was in the main header) — same
+     inputs, same filterFromDate/filterToDate logic, just relocated so
+     the main header stays uncluttered. */
+  .dashboard-date-range-bar{padding:10px 12px 0; margin-top:0;}
 
   /* ---------------- DASHBOARD OVERLAY ---------------- */
   .dashboard-overlay{
@@ -601,31 +612,32 @@
           <div class="brand-sub">Ayyappan Agency</div>
         </div>
       </div>
-      <div class="user-chip">
-        <button class="dash-btn" id="homeBtn" onclick="openHomeScreen()" title="Quick Links">&#8962;</button>
-        <button class="dash-btn" id="gridViewBtn" onclick="openGridView()" title="Grid View">&#9638;</button>
-        <button class="dash-btn" id="mechChartBtn" onclick="openMechChart()" title="Mechanic Allotment Chart">&#128736;</button>
-        <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
-        <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
-        <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Jobcards Upload" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
-        <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
-        <div class="user-info">
-          <div class="uname" id="userName">—</div>
-          <div class="urole" id="userRole">—</div>
-        </div>
+      <div class="user-info-only">
+        <div class="uname" id="userName">—</div>
+        <div class="urole" id="userRole">—</div>
         <button class="logout-btn" onclick="logout()">&#10132;</button>
       </div>
+    </div>
+    <div class="header-actions-row">
+      <button class="dash-btn" id="homeBtn" onclick="openHomeScreen()" title="Quick Links">&#8962;</button>
+      <button class="dash-btn" id="gridViewBtn" onclick="openGridView()" title="Grid View">&#9638;</button>
+      <button class="dash-btn" id="mechChartBtn" onclick="openMechChart()" title="Mechanic Allotment Chart">&#128736;</button>
+      <button class="dash-btn" id="dashBtn" onclick="toggleDashboard()" title="Dashboard">&#128202;</button>
+      <button class="report-btn" id="reportBtn" onclick="toggleReport()" title="Daily Report">&#128203;</button>
+      <button class="import-btn" id="importBtn" onclick="toggleImport()" title="Jobcards Upload" style="display:none; background:#efe9fb; border-radius:8px; padding:6px 9px;">&#128229;</button>
+      <button class="dash-btn" id="dateRangeToggleBtn" onclick="toggleDateRangePanel()" title="Date range filter">&#128197;</button>
+      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh now">&#8635;</button>
+    </div>
+    <div class="date-range-bar" id="dateRangePanel" style="display:none;">
+      <input type="date" class="date-range-input" id="filterFromDate" title="From date">
+      <span class="date-range-sep">to</span>
+      <input type="date" class="date-range-input" id="filterToDate" title="To date">
+      <button class="date-range-clear" id="dateRangeClearBtn" title="Clear date filter">&times;</button>
     </div>
     <div class="search-wrap">
       <span class="search-icon">&#128269;</span>
       <input type="text" class="search-input" id="searchInput" placeholder="Search vehicle number or jobcard no.">
       <button class="search-clear" id="clearBtn">&times;</button>
-    </div>
-    <div class="date-range-bar">
-      <input type="date" class="date-range-input" id="filterFromDate" title="From date">
-      <span class="date-range-sep">to</span>
-      <input type="date" class="date-range-input" id="filterToDate" title="To date">
-      <button class="date-range-clear" id="dateRangeClearBtn" title="Clear date filter">&times;</button>
     </div>
   </header>
 
@@ -2399,6 +2411,16 @@ document.getElementById('dateRangeClearBtn').addEventListener('click', ()=>{
   document.getElementById('filterToDate').value = '';
   render();
 });
+
+/* =========================================================
+   DATE RANGE PANEL — small popover under the header buttons row,
+   available to every role (not just Admin/Manager). Filtering itself
+   is unchanged: this just toggles the same From/To inputs' visibility.
+   ========================================================= */
+function toggleDateRangePanel(){
+  const panel = document.getElementById('dateRangePanel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+}
 
 /* =========================================================
    DASHBOARD
